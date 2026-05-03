@@ -1,11 +1,11 @@
 {
   "name": "sifr-lang",
   "displayName": "Sifr — لغة صِفر العربية",
-  "description": "Syntax highlighting and language support for Sifr (صِفر), the Arabic-first programming language.",
-  "version": "1.0.0",
+  "description": "Syntax highlighting, snippets, and full language reference for Sifr (صِفر), the Arabic-first programming language.",
+  "version": "1.1.0",
   "publisher": "sifr-lang",
   "engines": { "vscode": "^1.75.0" },
-  "categories": ["Programming Languages"],
+  "categories": ["Programming Languages", "Snippets"],
   "keywords": ["arabic", "sifr", "صفر", "عربي", "rtl"],
   "contributes": {
     "languages": [{
@@ -18,6 +18,10 @@
       "language": "sifr",
       "scopeName": "source.sifr",
       "path": "./syntaxes/sifr.tmLanguage.json"
+    }],
+    "snippets": [{
+      "language": "sifr",
+      "path": "./snippets/sifr.json"
     }]
   },
   "repository": { "type": "git", "url": "https://github.com/sifr-lang/sifr" },

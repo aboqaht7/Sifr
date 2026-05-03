@@ -36,6 +36,10 @@ The project utilizes a pnpm monorepo structure with Node.js 24 and TypeScript 5.
 - Components: Arabic tokenizer/normalizer, vocabulary builder, **Trigram** language model (weighted random next-word generation looking back 2 words), **TF-IDF** vectorizer (rare-word weighting via IDF), cosine-similarity retrieval engine over an expanded Q&A knowledge base (24 entries × 5 intent classes), and a **neural intent classifier** built on `شبكة_عصبية` with sigmoid+softmax activations trained on L2-normalized full-vocabulary vectors.
 - Lives as the `sifr-model` example in `ExamplesPanel.tsx`. Demonstrates end-to-end training (tokenize → vocab → IDF → trigram → neural classifier), generation (Trigram seeded with two words), and intent classification + retrieval with confidence scores — fully offline in the browser.
 
+**VSCode Extension (`vscode-sifr/`):**
+- Official Visual Studio Code extension v1.1.0 providing syntax highlighting, language configuration, and 324 IntelliSense snippets covering all 27 keywords and all 311 builtins.
+- Files: `package.json` (registers language `.sifr`/`.صفر`/`.arb` + grammar + snippets), `snippets/sifr.json` (auto-generated completions), `syntaxes/sifr.tmLanguage.json`, `language-configuration.json`, `docs/REFERENCE.md` (complete Arabic language reference categorized by domain), `README.md`.
+
 **IDE Features:**
 - **RTL Code Editor:** A custom `CodeEditor.tsx` component designed for right-to-left languages with syntax highlighting.
 - **Output Console:** `OutputConsole.tsx` for displaying program output and errors.
