@@ -543,3 +543,55 @@ html, body {
 
 /* Scrollbar global */
 * { scrollbar-width: thin; scrollbar-color: var(--border-bright) transparent; }
+
+/* ===== CANVAS PANE ===== */
+.canvas-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 280px;
+  border-right: 1px solid var(--border);
+  background: #fafafa;
+  color: #1f2937;
+}
+
+.canvas-surface {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  font-family: var(--font-arabic);
+  background: #fff;
+}
+
+.canvas-surface * {
+  font-family: var(--font-arabic), inherit;
+}
+
+.canvas-surface input,
+.canvas-surface button,
+.canvas-surface textarea {
+  font-family: var(--font-arabic);
+}
+
+.share-toast {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--gold);
+  color: var(--bg-base);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: var(--font-arabic);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  z-index: 100;
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}

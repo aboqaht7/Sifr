@@ -1,5 +1,7 @@
 import { Token, TokenType } from './lexer';
 
+export interface Loc { line: number; col: number }
+
 export interface Program { type: 'Program'; body: Statement[] }
 export type Statement =
   | VarDecl | ConstDecl | FunctionDecl | StructDecl
@@ -7,22 +9,22 @@ export type Statement =
   | TryStatement | ReturnStatement | BreakStatement | ContinueStatement
   | Block | ExpressionStatement;
 
-export interface VarDecl { type: 'VarDecl'; name: string; value: Expression | null }
-export interface ConstDecl { type: 'ConstDecl'; name: string; value: Expression }
-export interface FunctionDecl { type: 'FunctionDecl'; name: string; params: string[]; body: Block }
-export interface StructDecl { type: 'StructDecl'; name: string; fields: string[]; methods: FunctionDecl[] }
-export interface IfStatement { type: 'IfStatement'; condition: Expression; consequent: Block; alternate: Statement | null }
-export interface WhileStatement { type: 'WhileStatement'; condition: Expression; body: Block }
-export interface ForStatement { type: 'ForStatement'; variable: string; from: Expression; to: Expression; step: Expression | null; body: Block }
-export interface ForEachStatement { type: 'ForEachStatement'; variable: string; iterable: Expression; body: Block }
-export interface MatchStatement { type: 'MatchStatement'; value: Expression; cases: MatchCase[] }
+export interface VarDecl { type: 'VarDecl'; name: string; value: Expression | null; loc?: Loc }
+export interface ConstDecl { type: 'ConstDecl'; name: string; value: Expression; loc?: Loc }
+export interface FunctionDecl { type: 'FunctionDecl'; name: string; params: string[]; body: Block; loc?: Loc }
+export interface StructDecl { type: 'StructDecl'; name: string; parent: string | null; fields: string[]; methods: FunctionDecl[]; loc?: Loc }
+export interface IfStatement { type: 'IfStatement'; condition: Expression; consequent: Block; alternate: Statement | null; loc?: Loc }
+export interface WhileStatement { type: 'WhileStatement'; condition: Expression; body: Block; loc?: Loc }
+export interface ForStatement { type: 'ForStatement'; variable: string; from: Expression; to: Expression; step: Expression | null; body: Block; loc?: Loc }
+export interface ForEachStatement { type: 'ForEachStatement'; variable: string; iterable: Expression; body: Block; loc?: Loc }
+export interface MatchStatement { type: 'MatchStatement'; value: Expression; cases: MatchCase[]; loc?: Loc }
 export interface MatchCase { value: Expression | null; body: Statement[] }
-export interface TryStatement { type: 'TryStatement'; tryBlock: Statement[]; catchVar: string | null; catchBlock: Statement[] | null }
-export interface ReturnStatement { type: 'ReturnStatement'; value: Expression | null }
-export interface BreakStatement { type: 'BreakStatement' }
-export interface ContinueStatement { type: 'ContinueStatement' }
-export interface Block { type: 'Block'; body: Statement[] }
-export interface ExpressionStatement { type: 'ExpressionStatement'; expression: Expression }
+export interface TryStatement { type: 'TryStatement'; tryBlock: Statement[]; catchVar: string | null; catchBlock: Statement[] | null; loc?: Loc }
+export interface ReturnStatement { type: 'ReturnStatement'; value: Expression | null; loc?: Loc }
+export interface BreakStatement { type: 'BreakStatement'; loc?: Loc }
+export interface ContinueStatement { type: 'ContinueStatement'; loc?: Loc }
+export interface Block { type: 'Block'; body: Statement[]; loc?: Loc }
+export interface ExpressionStatement { type: 'ExpressionStatement'; expression: Expression; loc?: Loc }
 
 export type Expression =
   | NumberLiteral | StringLiteral | BooleanLiteral | NullLiteral | TemplateLiteral
@@ -65,6 +67,7 @@ const MATCH_KW = new Set(['طابق']);
 const CASE_KW = new Set(['حال']);
 const TRY_KW = new Set(['حاول']);
 const CATCH_KW = new Set(['التقط']);
+const INHERITS_KW = new Set(['وارث', 'يرث']);
 const END_KW = new Set(['انتهى']);
 
 class ParseError extends Error {
@@ -121,25 +124,29 @@ export function parse(tokens: Token[]): Program {
   function parseStatement(): Statement {
     skipSemis();
     const t = cur();
+    const loc: Loc = { line: t.line, col: t.col };
+    let result: Statement;
     if (t.type === 'IDENT') {
-      if (VAR_KW.has(t.value)) { pos++; return parseVarDecl(); }
-      if (CONST_KW.has(t.value)) { pos++; return parseConstDecl(); }
-      if (FUNC_KW.has(t.value)) {
-        // Distinguish named decl from anonymous expression: name → IDENT, anonymous → LPAREN
-        if (tokens[pos + 1]?.type === 'IDENT') { pos++; return parseFunctionDecl(); }
-        // else fall through to expression statement (lambda)
+      if (VAR_KW.has(t.value)) { pos++; result = parseVarDecl(); }
+      else if (CONST_KW.has(t.value)) { pos++; result = parseConstDecl(); }
+      else if (FUNC_KW.has(t.value) && tokens[pos + 1]?.type === 'IDENT') {
+        pos++; result = parseFunctionDecl();
       }
-      if (STRUCT_KW.has(t.value)) { pos++; return parseStructDecl(); }
-      if (IF_KW.has(t.value)) { pos++; return parseIfStatement(); }
-      if (WHILE_KW.has(t.value)) { pos++; return parseWhileStatement(); }
-      if (FOR_KW.has(t.value)) { pos++; return parseForStatement(); }
-      if (MATCH_KW.has(t.value)) { pos++; return parseMatchStatement(); }
-      if (TRY_KW.has(t.value)) { pos++; return parseTryStatement(); }
-      if (RETURN_KW.has(t.value)) { pos++; return parseReturnStatement(); }
-      if (BREAK_KW.has(t.value)) { pos++; return { type: 'BreakStatement' }; }
-      if (CONTINUE_KW.has(t.value)) { pos++; return { type: 'ContinueStatement' }; }
+      else if (STRUCT_KW.has(t.value)) { pos++; result = parseStructDecl(); }
+      else if (IF_KW.has(t.value)) { pos++; result = parseIfStatement(); }
+      else if (WHILE_KW.has(t.value)) { pos++; result = parseWhileStatement(); }
+      else if (FOR_KW.has(t.value)) { pos++; result = parseForStatement(); }
+      else if (MATCH_KW.has(t.value)) { pos++; result = parseMatchStatement(); }
+      else if (TRY_KW.has(t.value)) { pos++; result = parseTryStatement(); }
+      else if (RETURN_KW.has(t.value)) { pos++; result = parseReturnStatement(); }
+      else if (BREAK_KW.has(t.value)) { pos++; result = { type: 'BreakStatement' }; }
+      else if (CONTINUE_KW.has(t.value)) { pos++; result = { type: 'ContinueStatement' }; }
+      else { result = parseExpressionStatement(); }
+    } else {
+      result = parseExpressionStatement();
     }
-    return parseExpressionStatement();
+    (result as { loc?: Loc }).loc = loc;
+    return result;
   }
 
   function parseVarDecl(): VarDecl {
@@ -182,6 +189,10 @@ export function parse(tokens: Token[]): Program {
   }
   function parseStructDecl(): StructDecl {
     const name = expect('IDENT').value;
+    let parent: string | null = null;
+    if (matchIdent(INHERITS_KW)) {
+      parent = expect('IDENT').value;
+    }
     expect('COLON');
     const fields: string[] = [];
     const methods: FunctionDecl[] = [];
@@ -196,7 +207,7 @@ export function parse(tokens: Token[]): Program {
       skipSemis();
     }
     expectIdent(END_KW, 'انتهى');
-    return { type: 'StructDecl', name, fields, methods };
+    return { type: 'StructDecl', name, parent, fields, methods };
   }
   function parseIfStatement(): IfStatement {
     const condition = parseExpression();
@@ -204,7 +215,13 @@ export function parse(tokens: Token[]): Program {
     const consequent: Block = { type: 'Block', body: parseBody() };
     let alternate: Statement | null = null;
     if (matchIdent(ELSE_KW)) {
-      if (checkIdent(IF_KW)) { pos++; alternate = parseIfStatement(); }
+      if (checkIdent(IF_KW)) {
+        const ifTok = cur();
+        pos++;
+        const inner = parseIfStatement();
+        (inner as IfStatement).loc = { line: ifTok.line, col: ifTok.col };
+        alternate = inner;
+      }
       else {
         expect('COLON');
         const elseBlock: Block = { type: 'Block', body: parseBody() };

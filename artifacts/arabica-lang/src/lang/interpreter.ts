@@ -7,7 +7,15 @@ class BreakSignal {}
 class ContinueSignal {}
 
 class ArabicError extends Error {
+  public loc?: { line: number; col: number };
   constructor(message: string) { super(message); this.name = 'خطأ'; }
+}
+
+interface StructDef {
+  name: string;
+  parent: string | null;
+  fields: string[];
+  methods: { name: string; params: string[]; body: unknown; declEnv: Environment }[];
 }
 
 type EnvEntry = { value: unknown; isConst: boolean };
@@ -61,10 +69,23 @@ export class Interpreter {
   private readonly MAX_DEPTH = 500;
   private opCount = 0;
   private readonly MAX_OPS = 2_000_000;
+  private currentLoc: { line: number; col: number } | null = null;
+  private structs = new Map<string, StructDef>();
+  public canvasEl: HTMLElement | null = null;
 
   constructor() {
     this.globals = new Environment();
     this.setupBuiltins();
+  }
+
+  setCanvas(el: HTMLElement | null) { this.canvasEl = el; }
+  resetStructs() { this.structs.clear(); }
+
+  emitEventError(e: unknown, source: string) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const loc = (e as ArabicError)?.loc;
+    const prefix = loc ? `[السطر ${loc.line}] ` : '';
+    this.emit(`✗ ${prefix}في ${source}: ${msg}`, 'error');
   }
 
   private emit(text: string, kind: OutputLine['kind'] = 'output') {
@@ -367,6 +388,210 @@ export class Interpreter {
 
     // Error throwing
     g.define('خطأ', { __b: true, fn: (msg: string) => { throw new ArabicError(msg); } });
+
+    // ===== EXTENDED STDLIB =====
+
+    // Date helpers
+    g.define('الآن', { __b: true, fn: () => new Date() });
+    g.define('تاريخ_من', { __b: true, fn: (s: string) => new Date(s) });
+    g.define('سنة', { __b: true, fn: (d: Date) => (d instanceof Date ? d : new Date(d)).getFullYear() });
+    g.define('شهر', { __b: true, fn: (d: Date) => (d instanceof Date ? d : new Date(d)).getMonth() + 1 });
+    g.define('يوم', { __b: true, fn: (d: Date) => (d instanceof Date ? d : new Date(d)).getDate() });
+    g.define('ساعة', { __b: true, fn: (d: Date) => (d instanceof Date ? d : new Date(d)).getHours() });
+    g.define('دقيقة', { __b: true, fn: (d: Date) => (d instanceof Date ? d : new Date(d)).getMinutes() });
+    g.define('ثانية', { __b: true, fn: (d: Date) => (d instanceof Date ? d : new Date(d)).getSeconds() });
+    g.define('تنسيق_تاريخ', { __b: true, fn: (d: Date, fmt?: string) => {
+      const date = d instanceof Date ? d : new Date(d);
+      if (!fmt) return date.toLocaleString('ar-SA');
+      return fmt
+        .replace('سنة', String(date.getFullYear()))
+        .replace('شهر', String(date.getMonth() + 1).padStart(2, '0'))
+        .replace('يوم', String(date.getDate()).padStart(2, '0'))
+        .replace('ساعة', String(date.getHours()).padStart(2, '0'))
+        .replace('دقيقة', String(date.getMinutes()).padStart(2, '0'))
+        .replace('ثانية', String(date.getSeconds()).padStart(2, '0'));
+    }});
+
+    // Iteration helpers
+    g.define('عدّ', { __b: true, fn: (arr: unknown[]) => arr.map((v, i) => [i, v]) });
+    g.define('زوج', { __b: true, fn: (a: unknown[], b: unknown[]) => {
+      const len = Math.min(a.length, b.length);
+      const out: unknown[] = [];
+      for (let i = 0; i < len; i++) out.push([a[i], b[i]]);
+      return out;
+    }});
+    g.define('مجموعة_فريدة', { __b: true, fn: (arr: unknown[]) => {
+      const seen = new Set<string>();
+      const out: unknown[] = [];
+      for (const v of arr) {
+        const k = JSON.stringify(v);
+        if (!seen.has(k)) { seen.add(k); out.push(v); }
+      }
+      return out;
+    }});
+    g.define('عدّ_تكرارات', { __b: true, fn: (arr: unknown[]) => {
+      const counts: Record<string, number> = {};
+      for (const v of arr) {
+        const k = self.arabicStr(v);
+        counts[k] = (counts[k] ?? 0) + 1;
+      }
+      return counts;
+    }});
+    g.define('تجميع', { __b: true, fn: (arr: unknown[], fn: ArabicFunction) => {
+      const groups: Record<string, unknown[]> = {};
+      for (const v of arr) {
+        const k = self.arabicStr(self.callFunction(fn, [v]));
+        (groups[k] = groups[k] ?? []).push(v);
+      }
+      return groups;
+    }});
+
+    // String formatting
+    g.define('حشو_يسار', { __b: true, fn: (s: string, len: number, ch = ' ') => String(s).padStart(len, ch) });
+    g.define('حشو_يمين', { __b: true, fn: (s: string, len: number, ch = ' ') => String(s).padEnd(len, ch) });
+    g.define('رقم_بصيغة', { __b: true, fn: (n: number, decimals = 2) => Number(n).toFixed(decimals) });
+    g.define('عكس_نص', { __b: true, fn: (s: string) => Array.from(s).reverse().join('') });
+
+    // Math additions
+    g.define('حد', { __b: true, fn: (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x)) });
+    g.define('علامة', { __b: true, fn: (x: number) => Math.sign(x) });
+    g.define('بين', { __b: true, fn: (x: number, lo: number, hi: number) => x >= lo && x <= hi });
+    g.define('متوسط_موزون', { __b: true, fn: (vals: number[], weights: number[]) => {
+      let s = 0, w = 0;
+      for (let i = 0; i < vals.length; i++) { s += vals[i] * (weights[i] ?? 1); w += weights[i] ?? 1; }
+      return w === 0 ? 0 : s / w;
+    }});
+
+    // ===== DOM API: build real web UIs from عربيكا =====
+    const ensureCanvas = (): HTMLElement => {
+      if (!self.canvasEl) throw new ArabicError('اللوحة غير متاحة (افتح لوحة المعاينة)');
+      return self.canvasEl;
+    };
+    const isEl = (v: unknown): v is HTMLElement =>
+      typeof HTMLElement !== 'undefined' && v instanceof HTMLElement;
+
+    g.define('لوحة', { __b: true, fn: () => ensureCanvas() });
+    g.define('امسح_اللوحة', { __b: true, fn: () => { ensureCanvas().innerHTML = ''; return null; } });
+    g.define('عنصر', { __b: true, fn: (tag: string) => {
+      if (typeof document === 'undefined') throw new ArabicError('DOM غير متاح');
+      return document.createElement(String(tag || 'div'));
+    }});
+    g.define('نص_عنصر', { __b: true, fn: (text: string, tag = 'span') => {
+      if (typeof document === 'undefined') throw new ArabicError('DOM غير متاح');
+      const el = document.createElement(String(tag));
+      el.textContent = self.arabicStr(text);
+      return el;
+    }});
+    g.define('عنوان', { __b: true, fn: (text: string, level = 2) => {
+      if (typeof document === 'undefined') throw new ArabicError('DOM غير متاح');
+      const lv = Math.max(1, Math.min(6, Math.round(Number(level) || 2)));
+      const el = document.createElement(`h${lv}`);
+      el.textContent = self.arabicStr(text);
+      return el;
+    }});
+    g.define('فقرة', { __b: true, fn: (text: string) => {
+      const el = document.createElement('p');
+      el.textContent = self.arabicStr(text);
+      return el;
+    }});
+    g.define('زر', { __b: true, fn: (text: string, onClick?: ArabicFunction) => {
+      const btn = document.createElement('button');
+      btn.textContent = self.arabicStr(text);
+      btn.style.cssText = 'padding:8px 16px;margin:4px;border:0;border-radius:8px;background:#10b981;color:#fff;font-family:inherit;cursor:pointer;font-size:14px;';
+      if (onClick instanceof ArabicFunction) {
+        btn.addEventListener('click', () => {
+          try { self.callFunction(onClick, []); }
+          catch (e) { self.emitEventError(e, 'الزر'); }
+        });
+      }
+      return btn;
+    }});
+    g.define('حقل', { __b: true, fn: (placeholder?: string, onInput?: ArabicFunction) => {
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      if (placeholder) inp.placeholder = String(placeholder);
+      inp.style.cssText = 'padding:8px 12px;margin:4px;border:1px solid #d1d5db;border-radius:6px;font-family:inherit;font-size:14px;';
+      if (onInput instanceof ArabicFunction) {
+        inp.addEventListener('input', () => {
+          try { self.callFunction(onInput, [inp.value]); }
+          catch (e) { self.emitEventError(e, 'الحقل'); }
+        });
+      }
+      return inp;
+    }});
+    g.define('حاوية', { __b: true, fn: (...children: unknown[]) => {
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:12px;';
+      for (const c of children) {
+        if (isEl(c)) div.appendChild(c);
+        else if (c !== null && c !== undefined) {
+          const t = document.createElement('span');
+          t.textContent = self.arabicStr(c);
+          div.appendChild(t);
+        }
+      }
+      return div;
+    }});
+    g.define('صف', { __b: true, fn: (...children: unknown[]) => {
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;flex-direction:row;gap:8px;align-items:center;flex-wrap:wrap;';
+      for (const c of children) {
+        if (isEl(c)) div.appendChild(c);
+        else if (c !== null && c !== undefined) {
+          const t = document.createElement('span'); t.textContent = self.arabicStr(c); div.appendChild(t);
+        }
+      }
+      return div;
+    }});
+    g.define('صورة', { __b: true, fn: (src: string, alt = '') => {
+      const img = document.createElement('img');
+      img.src = String(src); img.alt = String(alt);
+      img.style.cssText = 'max-width:100%;border-radius:8px;';
+      return img;
+    }});
+    g.define('أضف', { __b: true, fn: (parent: unknown, ...children: unknown[]) => {
+      const p = parent === null || parent === undefined ? ensureCanvas() : (parent as HTMLElement);
+      if (!isEl(p)) throw new ArabicError('الوالد ليس عنصراً');
+      for (const c of children) {
+        if (isEl(c)) p.appendChild(c);
+        else if (c !== null && c !== undefined) {
+          const t = document.createElement('span'); t.textContent = self.arabicStr(c); p.appendChild(t);
+        }
+      }
+      return p;
+    }});
+    g.define('أنماط', { __b: true, fn: (el: HTMLElement, styles: Record<string, string>) => {
+      if (!isEl(el)) throw new ArabicError('ليس عنصراً');
+      const cssMap: Record<string, string> = {
+        'لون': 'color', 'خلفية': 'background', 'خط': 'fontFamily', 'حجم_خط': 'fontSize',
+        'سماكة': 'fontWeight', 'محاذاة': 'textAlign', 'حشو': 'padding', 'هامش': 'margin',
+        'حدود': 'border', 'دائرية': 'borderRadius', 'عرض': 'width', 'ارتفاع': 'height',
+        'ظل': 'boxShadow', 'شفافية': 'opacity',
+      };
+      for (const [k, v] of Object.entries(styles ?? {})) {
+        const cssKey = cssMap[k] ?? k;
+        (el.style as unknown as Record<string, string>)[cssKey] = String(v);
+      }
+      return el;
+    }});
+    g.define('استمع', { __b: true, fn: (el: HTMLElement, event: string, handler: ArabicFunction) => {
+      if (!isEl(el)) throw new ArabicError('ليس عنصراً');
+      const map: Record<string, string> = {
+        'نقر': 'click', 'مرور': 'mouseover', 'إدخال': 'input', 'تغيير': 'change',
+        'مفتاح': 'keydown', 'تركيز': 'focus',
+      };
+      const ev = map[event] ?? event;
+      el.addEventListener(ev, () => {
+        try { self.callFunction(handler, []); }
+        catch (e) { self.emitEventError(e, event); }
+      });
+      return el;
+    }});
+    g.define('غيّر_نص', { __b: true, fn: (el: HTMLElement, text: unknown) => {
+      if (!isEl(el)) throw new ArabicError('ليس عنصراً');
+      el.textContent = self.arabicStr(text);
+      return el;
+    }});
   }
 
   private callFunction(fn: ArabicFunction, args: unknown[], thisObj?: unknown): unknown {
@@ -394,13 +619,23 @@ export class Interpreter {
     this.lines = [];
     this.opCount = 0;
     this.callDepth = 0;
+    this.currentLoc = null;
+    this.structs.clear();
     try {
       const tokens = tokenize(source);
       const ast = parse(tokens);
       this.execBlock(ast.body, this.globals);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      this.emit(`✗ ${msg}`, 'error');
+      // Parser errors already encode "خطأ في السطر N، العمود C: ..." → reformat to [السطر N] prefix
+      const parseMatch = msg.match(/^خطأ في السطر (\d+)، العمود \d+: (.*)$/s);
+      if (parseMatch) {
+        this.emit(`✗ [السطر ${parseMatch[1]}] ${parseMatch[2]}`, 'error');
+      } else {
+        const loc = (e as ArabicError)?.loc ?? this.currentLoc;
+        const prefix = loc ? `[السطر ${loc.line}] ` : '';
+        this.emit(`✗ ${prefix}${msg}`, 'error');
+      }
     }
     return this.lines;
   }
@@ -411,6 +646,17 @@ export class Interpreter {
 
   private execStmt(stmt: unknown, env: Environment) {
     const s = stmt as Record<string, unknown>;
+    const loc = s.loc as { line: number; col: number } | undefined;
+    if (loc) this.currentLoc = loc;
+    try {
+      this.execStmtInner(s, env);
+    } catch (e) {
+      if (e instanceof ArabicError && !e.loc && loc) e.loc = loc;
+      throw e;
+    }
+  }
+
+  private execStmtInner(s: Record<string, unknown>, env: Environment) {
     switch (s.type) {
       case 'VarDecl':
         env.define(s.name as string, s.value ? this.evalExpr(s.value, env) : null);
@@ -425,16 +671,44 @@ export class Interpreter {
       }
       case 'StructDecl': {
         const fields = s.fields as string[];
-        const methods = (s.methods as { name: string; params: string[]; body: unknown }[]) ?? [];
+        const rawMethods = (s.methods as { name: string; params: string[]; body: unknown }[]) ?? [];
         const structName = s.name as string;
+        const parentName = (s.parent as string | null) ?? null;
         const declEnv = env;
+        const methods = rawMethods.map(m => ({ ...m, declEnv }));
+
+        // Resolve inheritance chain with cycle detection (parent first, child overrides)
+        const allFields: string[] = [];
+        const allMethods = new Map<string, { params: string[]; body: unknown; declEnv: Environment }>();
+        const parents: string[] = [];
+        const visited = new Set<string>([structName]);
+        let pName: string | null = parentName;
+        while (pName) {
+          if (visited.has(pName)) throw new ArabicError(`حلقة وراثة عند '${pName}'`);
+          visited.add(pName);
+          const pDef = this.structs.get(pName);
+          if (!pDef) throw new ArabicError(`البنية الأب '${pName}' غير معرّفة`);
+          parents.unshift(pName);
+          pName = pDef.parent;
+        }
+        for (const ancName of parents) {
+          const def = this.structs.get(ancName)!;
+          for (const f of def.fields) if (!allFields.includes(f)) allFields.push(f);
+          // Inherited methods keep their original parent declaration env (lexical correctness)
+          for (const m of def.methods) allMethods.set(m.name, m);
+        }
+        for (const f of fields) if (!allFields.includes(f)) allFields.push(f);
+        for (const m of methods) allMethods.set(m.name, m);
+
+        this.structs.set(structName, { name: structName, parent: parentName, fields, methods });
+
         const ctor = {
           __b: true,
           fn: (...args: unknown[]) => {
             const obj: Record<string, unknown> = { __struct__: structName };
-            fields.forEach((f, i) => { obj[f] = args[i] ?? null; });
-            for (const m of methods) {
-              obj[m.name] = new ArabicFunction(m.params, m.body, declEnv, m.name);
+            allFields.forEach((f, i) => { obj[f] = args[i] ?? null; });
+            for (const [mname, m] of allMethods) {
+              obj[mname] = new ArabicFunction(m.params, m.body, m.declEnv, mname);
             }
             return obj;
           },

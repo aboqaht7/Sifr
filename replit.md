@@ -66,6 +66,22 @@ Block delimiters: `:` opens a block, `انتهى` closes it (Pascal-inspired but
 - **Save/load models** to localStorage: `احفظ_نموذج(net, key)`, `حمّل_نموذج(key)`, `نماذج_محفوظة()`
 - Core AI: `شبكة_عصبية`, `درّب`, `تنبأ`, `خسارة`, `دقة`
 
+### Tier 4 — Real Language Upgrades (added)
+- **Line-numbered errors**: every Statement carries `loc { line, col }` from the parser; runtime errors are prefixed with `[السطر N]`. Parser errors are reformatted to the same prefix. Errors raised inside DOM event handlers also carry location via `emitEventError`.
+- **Struct inheritance**: `بنية كلب وارث حيوان : ... انتهى`
+  Resolves the chain at declaration time with cycle detection (`حلقة وراثة` error). Inherited methods preserve their **parent's** declaration environment for correct lexical capture; child overrides win on name conflict.
+- **DOM API** (build real interactive UIs from عربيكا):
+  - Elements: `لوحة`, `عنصر`, `نص_عنصر`, `عنوان`, `فقرة`, `زر`, `حقل`, `حاوية`, `صف`, `صورة`
+  - Operations: `أضف`, `أنماط` (Arabic CSS keys: لون/خلفية/حشو/...), `استمع`, `غيّر_نص`, `امسح_اللوحة`
+  - Events bind ArabicFunction handlers; errors in handlers print to the output console with line info.
+  - Wired via `interpreter.setCanvas(el)` — Playground exposes a "🎨 لوحة" pane.
+- **Extended stdlib**:
+  - Dates: `الآن`, `سنة`, `شهر`, `يوم`, `ساعة`, `دقيقة`, `ثانية`, `تنسيق_تاريخ(t, "يوم/شهر/سنة ساعة:دقيقة")`
+  - Iteration: `عدّ` (enumerate), `زوج` (zip), `مجموعة_فريدة`, `عدّ_تكرارات`, `تجميع(list, fn)`
+  - Format: `حشو_يسار/يمين`, `رقم_بصيغة(n, decimals)`, `عكس_نص`
+  - Math: `حد(x, lo, hi)` (clamp), `علامة` (sign), `بين(x, lo, hi)`, `متوسط_موزون`
+- **Share via URL**: 📤 button base64-encodes the current code into `#code=...` hash; the hash auto-decodes on page load (UTF-8 safe via TextEncoder/Decoder).
+
 ### Language Files
 - `src/lang/lexer.ts` — Arabic tokenizer (handles diacritics, Arabic digits, Arabic comma)
 - `src/lang/parser.ts` — Recursive descent parser → AST
@@ -73,13 +89,14 @@ Block delimiters: `:` opens a block, `انتهى` closes it (Pascal-inspired but
 - `src/lang/interpreter.ts` — Tree-walking interpreter with closures, environment chain
 - `src/components/CodeEditor.tsx` — RTL code editor with syntax highlighting
 - `src/components/OutputConsole.tsx` — Output display
-- `src/components/ExamplesPanel.tsx` — 14 built-in examples (4 categories)
-- `src/pages/Playground.tsx` — Main IDE layout
+- `src/components/ExamplesPanel.tsx` — 18 built-in examples (5 categories)
+- `src/pages/Playground.tsx` — Main IDE layout (editor + console + canvas + share)
 
-### Examples Included (14 total, 4 categories)
-**أساسي (Basics)**: Hello World, Math, Control flow, Functions & recursion, Arrays & structs
+### Examples Included (18 total, 5 categories)
+**أساسي (Basics)**: Hello World, Math, Control flow, Functions & recursion, Arrays & structs, Dates & stats
+**تطبيقات (Apps)**: Interactive counter, Todo list (full DOM apps)
 **خوارزميات (Algorithms)**: Pattern matching, Sorting / primes / GCD
-**متقدم (Advanced)**: Try/catch, Lambdas + templates, OOP with methods, JSON + regex
+**متقدم (Advanced)**: Try/catch, Lambdas + templates, OOP with methods, JSON + regex, Inheritance
 **ذكاء اصطناعي (AI)**: XOR network, Multi-activation + save/load, 2D classifier
 
 ## Key Commands
