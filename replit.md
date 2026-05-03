@@ -31,6 +31,11 @@ The project utilizes a pnpm monorepo structure with Node.js 24 and TypeScript 5.
 - **Streams API:** A lazy-evaluated Streams API for efficient data processing on collections, supporting source, lazy, and terminal operations.
 - **Algorithms:** Built-in algorithms for sorting (quicksort, mergesort), searching (binary, linear), string similarity (Levenshtein), and graph traversal (DFS, BFS, shortest path).
 
+**Sifr-Native AI Model (نموذج_صِفر):**
+- A complete Arabic AI assistant written 100% in Sifr code (no external APIs/libraries).
+- Components: Arabic tokenizer/normalizer, vocabulary builder, Bigram language model (weighted random next-word generation), bag-of-words vectorizer, cosine-similarity retrieval engine over a Q&A knowledge base.
+- Lives as the `sifr-model` example in `ExamplesPanel.tsx`. Demonstrates training, generation, and intent-style retrieval with confidence scores — fully offline in the browser.
+
 **IDE Features:**
 - **RTL Code Editor:** A custom `CodeEditor.tsx` component designed for right-to-left languages with syntax highlighting.
 - **Output Console:** `OutputConsole.tsx` for displaying program output and errors.
