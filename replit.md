@@ -35,12 +35,36 @@ Block delimiters: `:` opens a block, `انتهى` closes it (Pascal-inspired but
 - Print: `أرني(...)` ; return: `أعد` ; break: `قف` ; continue: `استمر`
 - Arrays, objects, recursion, closures, higher-order functions
 
-### Built-in AI Functions
-- `شبكة_عصبية([2، 4، 1])` — create feedforward neural network
-- `درّب(نموذج، بيانات، دورات، معدل_التعلم)` — backpropagation training
-- `تنبأ(نموذج، مدخل)` — make predictions
-- `خسارة(تنبؤات، حقيقية)` — MSE loss
-- `دقة(نموذج، بيانات)` — accuracy %
+### Tier 1 — Essentials (added)
+- **Try/catch**: `حاول : ... التقط ع : ... انتهى` (catch var optional)
+- **Throw**: `خطأ("رسالة")` raises ArabicError caught by catch
+- **Lambdas**: `مهمّة(أ، ب) : أعد أ + ب انتهى` as expression (anonymous)
+- **Methods on structs** with `هذا` (this binding):
+  ```
+  بنية نقطة :
+      س
+      ع
+      مهمّة مسافة() :
+          أعد جذر(هذا.س ** 2 + هذا.ع ** 2)
+      انتهى
+  انتهى
+  ```
+- **Template strings**: `` `مرحباً {اسم}، عمرك {عمر + 1}` ``
+  Uses `\{` / `\}` for literal braces. Implementation: lexer emits TEMPLATE token with NUL-marker escapes; interpreter re-tokenizes/parses each `{expr}` substring.
+
+### Tier 2 — World Connection (added)
+- **JSON**: `إلى_جسون(كائن، صدق)` (pretty-print flag), `من_جسون(نص)`
+- **Regex**: `نمط(pat, flags)`, `يطابق_نمط`, `استخرج_نمط`, `استبدل_نمط`
+- **HTTP** (synchronous via XHR — fits sync interpreter): `جلب(url)`, `جلب_جسون(url)`
+- **File save** (browser download): `احفظ_ملف(name, content)`
+- **localStorage**: `احفظ(key, value)` / `حمّل(key)` (auto JSON-encoded, prefixed `arabica_`)
+
+### Tier 3 — Advanced AI (added)
+- **Multiple activations** per layer: `شبكة_عصبية([2، 8، 1]، ["ريلو"، "سيغمويد"])`
+  Supported: `سيغمويد`, `ريلو`, `ظل_زائدي` (tanh), `سوفت_ماكس`, `خطّي`
+- **Smart weight init**: He init for ReLU, Xavier for sigmoid/tanh
+- **Save/load models** to localStorage: `احفظ_نموذج(net, key)`, `حمّل_نموذج(key)`, `نماذج_محفوظة()`
+- Core AI: `شبكة_عصبية`, `درّب`, `تنبأ`, `خسارة`, `دقة`
 
 ### Language Files
 - `src/lang/lexer.ts` — Arabic tokenizer (handles diacritics, Arabic digits, Arabic comma)
@@ -49,19 +73,14 @@ Block delimiters: `:` opens a block, `انتهى` closes it (Pascal-inspired but
 - `src/lang/interpreter.ts` — Tree-walking interpreter with closures, environment chain
 - `src/components/CodeEditor.tsx` — RTL code editor with syntax highlighting
 - `src/components/OutputConsole.tsx` — Output display
-- `src/components/ExamplesPanel.tsx` — 9 built-in examples
+- `src/components/ExamplesPanel.tsx` — 14 built-in examples (4 categories)
 - `src/pages/Playground.tsx` — Main IDE layout
 
-### Examples Included
-1. مرحباً بالعالم (Hello World)
-2. العمليات الحسابية (Math)
-3. الشروط والحلقات (Control flow)
-4. الدوال والتكرار (Functions & recursion)
-5. القوائم والكائنات (Arrays & objects)
-6. خوارزمية الفرز (Sorting algorithms)
-7. شبكة XOR العصبية (AI: XOR neural network)
-8. مصنف الذكاء الاصطناعي (AI: classifier)
-9. خوارزميات قياسية (Primes, GCD)
+### Examples Included (14 total, 4 categories)
+**أساسي (Basics)**: Hello World, Math, Control flow, Functions & recursion, Arrays & structs
+**خوارزميات (Algorithms)**: Pattern matching, Sorting / primes / GCD
+**متقدم (Advanced)**: Try/catch, Lambdas + templates, OOP with methods, JSON + regex
+**ذكاء اصطناعي (AI)**: XOR network, Multi-activation + save/load, 2D classifier
 
 ## Key Commands
 

@@ -3,6 +3,7 @@ export type TokenType =
   | 'IDENT'
   | 'ASSIGN'
   | 'PLUS' | 'MINUS' | 'STAR' | 'SLASH' | 'PERCENT' | 'POWER'
+  | 'TEMPLATE'
   | 'EQ' | 'NEQ' | 'LT' | 'GT' | 'LTE' | 'GTE'
   | 'AND' | 'OR' | 'NOT'
   | 'LBRACE' | 'RBRACE' | 'LPAREN' | 'RPAREN' | 'LBRACKET' | 'RBRACKET'
@@ -101,6 +102,32 @@ export function tokenize(source: string): Token[] {
         num += toWesternDigit(advance());
       }
       push('NUMBER', num, sl, sc);
+      continue;
+    }
+
+    // Template strings (backtick) — supports {expr} interpolation
+    if (ch === '`') {
+      advance();
+      let raw = '';
+      while (pos < source.length && cur() !== '`') {
+        if (cur() === '\\') {
+          advance();
+          const e = advance();
+          switch (e) {
+            case 'n': raw += '\n'; break;
+            case 't': raw += '\t'; break;
+            case 'r': raw += '\r'; break;
+            case '`': raw += '`'; break;
+            case '{': raw += '\x00OPEN\x00'; break;
+            case '}': raw += '\x00CLOSE\x00'; break;
+            default: raw += e;
+          }
+        } else {
+          raw += advance();
+        }
+      }
+      if (pos < source.length) advance();
+      push('TEMPLATE', raw, sl, sc);
       continue;
     }
 

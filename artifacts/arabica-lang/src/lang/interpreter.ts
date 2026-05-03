@@ -1,6 +1,6 @@
 import { tokenize } from './lexer';
 import { parse } from './parser';
-import { ShebkaAsabiyya } from './ai';
+import { ShebkaAsabiyya, normalizeActivation, Activation } from './ai';
 
 class ReturnSignal { constructor(public value: unknown) {} }
 class BreakSignal {}
@@ -152,7 +152,8 @@ export class Interpreter {
       if (x instanceof ShebkaAsabiyya) return 'شبكة_عصبية';
       if (x instanceof ArabicFunction || (x as Record<string, unknown>)?.__b) return 'دالة';
       if (typeof x === 'object') return 'كائن';
-      return { number: 'رقم', string: 'نص', boolean: 'منطقي' }[typeof x] ?? typeof x;
+      const map: Record<string, string> = { number: 'رقم', string: 'نص', boolean: 'منطقي' };
+      return map[typeof x] ?? typeof x;
     }});
     g.define('صحيح_رقمياً', { __b: true, fn: (x: unknown) => !isNaN(Number(x)) });
 
@@ -204,7 +205,31 @@ export class Interpreter {
     g.define('تكرار', { __b: true, fn: (str: string, n: number) => str.repeat(n) });
 
     // AI functions
-    g.define('شبكة_عصبية', { __b: true, fn: (layers: number[]) => new ShebkaAsabiyya(layers) });
+    g.define('شبكة_عصبية', { __b: true, fn: (layers: number[], activations?: string[]) => {
+      const acts = activations ? activations.map(a => normalizeActivation(a)) as Activation[] : undefined;
+      return new ShebkaAsabiyya(layers, acts);
+    }});
+    g.define('احفظ_نموذج', { __b: true, fn: (net: ShebkaAsabiyya, key: string) => {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(`arabica_model_${key}`, net.serialize());
+      }
+      return null;
+    }});
+    g.define('حمّل_نموذج', { __b: true, fn: (key: string) => {
+      if (typeof window === 'undefined' || !window.localStorage) throw new ArabicError('التخزين المحلي غير متاح');
+      const data = window.localStorage.getItem(`arabica_model_${key}`);
+      if (!data) throw new ArabicError(`النموذج '${key}' غير موجود`);
+      return ShebkaAsabiyya.deserialize(data);
+    }});
+    g.define('نماذج_محفوظة', { __b: true, fn: () => {
+      if (typeof window === 'undefined' || !window.localStorage) return [];
+      const out: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k?.startsWith('arabica_model_')) out.push(k.replace('arabica_model_', ''));
+      }
+      return out;
+    }});
     g.define('درّب', { __b: true, fn: (net: ShebkaAsabiyya, data: number[][], epochs = 1000, lr = 0.1) => {
       self.emit(`[جارٍ التدريب: ${epochs} دورة على ${data.length} عينة...]`, 'info');
       net.train(data, epochs, lr);
@@ -244,13 +269,112 @@ export class Interpreter {
 
     // Time
     g.define('وقت', { __b: true, fn: () => Date.now() });
+    g.define('تاريخ', { __b: true, fn: () => new Date().toLocaleString('ar') });
+
+    // JSON
+    g.define('إلى_جسون', { __b: true, fn: (v: unknown, pretty?: boolean) => {
+      const replacer = (_k: string, val: unknown) =>
+        val instanceof ShebkaAsabiyya ? JSON.parse(val.serialize()) :
+        val instanceof ArabicFunction ? `[مهمّة]` : val;
+      return JSON.stringify(v, replacer, pretty ? 2 : undefined);
+    }});
+    g.define('من_جسون', { __b: true, fn: (s: string) => {
+      try { return JSON.parse(s); } catch (e) { throw new ArabicError(`جسون غير صالح: ${(e as Error).message}`); }
+    }});
+
+    // Regex
+    g.define('نمط', { __b: true, fn: (pat: string, flags?: string) => {
+      try { return new RegExp(pat, flags ?? ''); } catch (e) { throw new ArabicError(`نمط غير صالح: ${(e as Error).message}`); }
+    }});
+    g.define('يطابق_نمط', { __b: true, fn: (str: string, pat: RegExp | string) => {
+      const r = pat instanceof RegExp ? pat : new RegExp(pat);
+      return r.test(str);
+    }});
+    g.define('استخرج_نمط', { __b: true, fn: (str: string, pat: RegExp | string) => {
+      let r: RegExp;
+      try {
+        if (pat instanceof RegExp) {
+          r = pat.flags.includes('g') ? pat : new RegExp(pat.source, pat.flags + 'g');
+        } else {
+          r = new RegExp(pat, 'g');
+        }
+        return Array.from(str.matchAll(r), m => m[0]);
+      } catch (e) {
+        throw new ArabicError(`فشل استخراج النمط: ${(e as Error).message}`);
+      }
+    }});
+    g.define('استبدل_نمط', { __b: true, fn: (str: string, pat: RegExp | string, repl: string) => {
+      try {
+        let r: RegExp;
+        if (pat instanceof RegExp) {
+          r = pat.flags.includes('g') ? pat : new RegExp(pat.source, pat.flags + 'g');
+        } else {
+          r = new RegExp(pat, 'g');
+        }
+        return str.replace(r, repl);
+      } catch (e) {
+        throw new ArabicError(`فشل استبدال النمط: ${(e as Error).message}`);
+      }
+    }});
+
+    // HTTP (synchronous fetch via XHR)
+    g.define('جلب', { __b: true, fn: (url: string) => {
+      if (typeof XMLHttpRequest === 'undefined') throw new ArabicError('الجلب غير متاح هنا');
+      const xhr = new XMLHttpRequest();
+      try {
+        xhr.open('GET', url, false);
+        xhr.send();
+        if (xhr.status >= 200 && xhr.status < 300) return xhr.responseText;
+        throw new ArabicError(`فشل الجلب: ${xhr.status} ${xhr.statusText}`);
+      } catch (e) {
+        if (e instanceof ArabicError) throw e;
+        throw new ArabicError(`خطأ في الجلب: ${(e as Error).message}`);
+      }
+    }});
+    g.define('جلب_جسون', { __b: true, fn: (url: string) => {
+      if (typeof XMLHttpRequest === 'undefined') throw new ArabicError('الجلب غير متاح هنا');
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', url, false);
+      xhr.send();
+      if (xhr.status < 200 || xhr.status >= 300) throw new ArabicError(`فشل: ${xhr.status}`);
+      try { return JSON.parse(xhr.responseText); } catch { throw new ArabicError('الاستجابة ليست جسون صالحاً'); }
+    }});
+
+    // File save (browser download)
+    g.define('احفظ_ملف', { __b: true, fn: (name: string, content: string) => {
+      if (typeof document === 'undefined') return null;
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+      return null;
+    }});
+
+    // localStorage helpers
+    g.define('احفظ', { __b: true, fn: (key: string, value: unknown) => {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(`arabica_${key}`, JSON.stringify(value));
+      }
+      return null;
+    }});
+    g.define('حمّل', { __b: true, fn: (key: string) => {
+      if (typeof window === 'undefined' || !window.localStorage) return null;
+      const v = window.localStorage.getItem(`arabica_${key}`);
+      return v === null ? null : JSON.parse(v);
+    }});
+
+    // Error throwing
+    g.define('خطأ', { __b: true, fn: (msg: string) => { throw new ArabicError(msg); } });
   }
 
-  private callFunction(fn: ArabicFunction, args: unknown[]): unknown {
+  private callFunction(fn: ArabicFunction, args: unknown[], thisObj?: unknown): unknown {
     this.callDepth++;
     if (this.callDepth > this.MAX_DEPTH) throw new ArabicError('تجاوز عمق الاستدعاء الأقصى (تحقق من التكرار اللانهائي)');
     try {
       const fnEnv = new Environment(fn.closure);
+      if (thisObj !== undefined) fnEnv.define('هذا', thisObj);
       for (let i = 0; i < fn.params.length; i++) {
         fnEnv.define(fn.params[i], args[i] ?? null);
       }
@@ -301,16 +425,38 @@ export class Interpreter {
       }
       case 'StructDecl': {
         const fields = s.fields as string[];
+        const methods = (s.methods as { name: string; params: string[]; body: unknown }[]) ?? [];
         const structName = s.name as string;
+        const declEnv = env;
         const ctor = {
           __b: true,
           fn: (...args: unknown[]) => {
             const obj: Record<string, unknown> = { __struct__: structName };
             fields.forEach((f, i) => { obj[f] = args[i] ?? null; });
+            for (const m of methods) {
+              obj[m.name] = new ArabicFunction(m.params, m.body, declEnv, m.name);
+            }
             return obj;
           },
         };
         env.define(structName, ctor);
+        break;
+      }
+      case 'TryStatement': {
+        const tryBlock = s.tryBlock as unknown[];
+        const catchBlock = s.catchBlock as unknown[] | null;
+        const catchVar = s.catchVar as string | null;
+        try {
+          this.execBlock(tryBlock, new Environment(env));
+        } catch (err) {
+          if (err instanceof ReturnSignal || err instanceof BreakSignal || err instanceof ContinueSignal) throw err;
+          // No catch clause → rethrow (don't silently swallow)
+          if (!catchBlock) throw err;
+          const catchEnv = new Environment(env);
+          const msg = err instanceof Error ? err.message : String(err);
+          if (catchVar) catchEnv.define(catchVar, msg);
+          this.execBlock(catchBlock, catchEnv);
+        }
         break;
       }
       case 'ForEachStatement': {
@@ -423,6 +569,61 @@ export class Interpreter {
       case 'NullLiteral': return null;
 
       case 'Identifier': return env.get(e.name as string);
+
+      case 'LambdaExpr':
+        return new ArabicFunction(e.params as string[], e.body, env, '<مجهولة>');
+
+      case 'TemplateLiteral': {
+        const raw = (e.raw as string)
+          .replace(/\x00OPEN\x00/g, '\x01')
+          .replace(/\x00CLOSE\x00/g, '\x02');
+        let result = '';
+        let i = 0;
+        while (i < raw.length) {
+          if (raw[i] === '{') {
+            i++;
+            let exprSrc = '';
+            let depth = 1;
+            // String-aware brace scanner: skip braces inside string literals
+            while (i < raw.length && depth > 0) {
+              const ch = raw[i];
+              if (ch === '"' || ch === "'") {
+                const q = ch;
+                exprSrc += ch; i++;
+                while (i < raw.length && raw[i] !== q) {
+                  if (raw[i] === '\\' && i + 1 < raw.length) { exprSrc += raw[i] + raw[i+1]; i += 2; continue; }
+                  exprSrc += raw[i]; i++;
+                }
+                if (i < raw.length) { exprSrc += raw[i]; i++; }
+                continue;
+              }
+              if (ch === '{') depth++;
+              else if (ch === '}') { depth--; if (depth === 0) break; }
+              exprSrc += ch; i++;
+            }
+            if (i >= raw.length) throw new ArabicError('قالب نصّي غير مغلق: ينقص }');
+            i++; // consume closing }
+            try {
+              const subTokens = tokenize(exprSrc);
+              const subAst = parse(subTokens);
+              if (subAst.body.length !== 1) {
+                throw new ArabicError('تعبير القالب يجب أن يكون تعبيراً واحداً');
+              }
+              const stmt = subAst.body[0] as { type?: string; expression?: unknown };
+              if (stmt.type !== 'ExpressionStatement' || !stmt.expression) {
+                throw new ArabicError('تعبير القالب يجب أن يكون تعبيراً واحداً');
+              }
+              result += this.arabicStr(this.evalExpr(stmt.expression, env));
+            } catch (err) {
+              if (err instanceof ArabicError) throw err;
+              throw new ArabicError(`في تعبير القالب: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          } else if (raw[i] === '\x01') { result += '{'; i++; }
+          else if (raw[i] === '\x02') { result += '}'; i++; }
+          else { result += raw[i]; i++; }
+        }
+        return result;
+      }
 
       case 'ArrayLiteral':
         return (e.elements as unknown[]).map(el => this.evalExpr(el, env));
@@ -541,6 +742,9 @@ export class Interpreter {
           }
           // Fall through to regular property call
           const maybeMethod = (obj as Record<string, unknown>)?.[method];
+          if (maybeMethod instanceof ArabicFunction) {
+            return this.callFunction(maybeMethod, args, obj);
+          }
           if (maybeMethod && (maybeMethod as Record<string, unknown>).__b) {
             return (maybeMethod as { __b: boolean; fn: (...a: unknown[]) => unknown }).fn(...args);
           }
