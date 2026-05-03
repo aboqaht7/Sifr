@@ -435,6 +435,27 @@ function DocsPanel() {
       </section>
 
       <section>
+        <h4>المكتبة الموسّعة (80+ دالة) 🎁🆕</h4>
+        <p style={{ fontSize: '0.85em', opacity: 0.85, lineHeight: 1.7 }}>
+          <strong>رياضيات:</strong> <code>لو2</code>، <code>لو10</code>، <code>أُس</code>، <code>وتر</code>، <code>قاطع</code>، <code>مضاعف</code>، <code>مضروب</code>، <code>فيبوناتشي</code>، <code>أولي؟</code>، <code>قائمة_أوّليات</code>، <code>قوس_جيب/ظل</code>، <code>إلى_راديان/درجات</code>، <code>مسافة</code><br/>
+          <strong>إحصاء:</strong> <code>وسيط</code>، <code>منوال</code>، <code>تباين</code>، <code>انحراف_معياري</code>، <code>مئوي</code>، <code>مدى</code>، <code>فهرس_أقصى/أدنى</code><br/>
+          <strong>عشوائي:</strong> <code>عشوائي_بين</code>، <code>اختر_عشوائي</code>، <code>خلط</code>، <code>عيّنة</code>، <code>لون_عشوائي</code><br/>
+          <strong>نص:</strong> <code>فهرس_نص</code>، <code>جزء_نص</code>، <code>كبّر_أوّل</code>، <code>كلمات</code>، <code>أسطر</code>، <code>أمن_html</code>، <code>عدّ_تكرار_نص</code><br/>
+          <strong>عربي:</strong> <code>بدون_تشكيل</code>، <code>وحّد_ألف/همزة</code>، <code>تطبيع_عربي</code>، <code>أرقام_عربية_إلى_غربية</code>، <code>عدد_كلمات</code>، <code>عربي؟</code><br/>
+          <strong>قوائم:</strong> <code>سطّح</code>، <code>سطّح_تماماً</code>، <code>جد</code>، <code>جد_فهرس</code>، <code>كل</code>، <code>بعض</code>، <code>قطع</code>، <code>خذ</code>، <code>اسقط</code>، <code>فرز_بـ</code><br/>
+          <strong>كائنات:</strong> <code>أزواج</code>، <code>ادمج_كائنات</code>، <code>نسخة_عميقة</code>، <code>له_مفتاح</code>، <code>احذف_مفتاح</code><br/>
+          <strong>تحقق:</strong> <code>بريد_صحيح؟</code>، <code>رابط_صحيح؟</code>، <code>هاتف_صحيح؟</code>، <code>فارغ؟</code><br/>
+          <strong>ألوان:</strong> <code>سداسي_إلى_رغب</code>، <code>رغب_إلى_سداسي</code>، <code>لون_رغب</code>، <code>لون_تدرج</code><br/>
+          <strong>تاريخ هجري:</strong> <code>سنة_هجرية</code>، <code>شهر_هجري</code>، <code>يوم_هجري</code>، <code>تاريخ_هجري</code><br/>
+          <strong>تشفير:</strong> <code>معرّف_فريد</code>، <code>بصمة</code>، <code>ترميز_64</code>، <code>فك_64</code><br/>
+          <strong>صوت:</strong> <code>نغمة(تردد، مدة)</code>، <code>صفير</code>، <code>انطق(نص)</code> 🔊<br/>
+          <strong>تنسيق:</strong> <code>عملة</code>، <code>رقم_منسّق</code>، <code>نسبة_مئوية</code><br/>
+          <strong>تحويلات:</strong> <code>مئوي↔فهرنهايت</code>، <code>كم↔ميل</code>، <code>كغ↔رطل</code><br/>
+          <strong>أداء:</strong> <code>قياس(دالة)</code> — يُرجع زمن التنفيذ بالميلي ثانية
+        </p>
+      </section>
+
+      <section>
         <h4>الذكاء الاصطناعي 🧠</h4>
         <code>{`شبكة_عصبية([2، 8، 1]، ["ريلو"، "سيغمويد"])\nدرّب(نموذج، بيانات، 1000)\nتنبأ(نموذج، [1، 0])\nاحفظ_نموذج / حمّل_نموذج`}</code>
       </section>

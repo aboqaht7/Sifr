@@ -66,6 +66,26 @@ Block delimiters: `:` opens a block, `انتهى` closes it (Pascal-inspired but
 - **Save/load models** to localStorage: `احفظ_نموذج(net, key)`, `حمّل_نموذج(key)`, `نماذج_محفوظة()`
 - Core AI: `شبكة_عصبية`, `درّب`, `تنبأ`, `خسارة`, `دقة`
 
+### Tier 6 — Mega Standard Library (added)
+- **+80 new built-in functions** spanning 12 domains. Lexer change: `؟` (U+061F) now allowed inside identifiers (Ruby/Scheme-style predicate suffix), enabling `أولي؟`, `فارغ؟`, `عربي؟`, `بريد_صحيح؟`, etc.
+- **Math (extended)**: `لو2`, `لو10`, `أُس`, `وتر`, `قاطع` (gcd), `مضاعف` (lcm), `مضروب`, `فيبوناتشي`, `أولي؟`, `قائمة_أوّليات` (sieve), `قوس_جيب/تمام/ظل`, `قوس_ظل2`, `إلى_راديان`, `إلى_درجات`, `مسافة` (2D euclidean).
+- **Statistics**: `وسيط`, `منوال`, `تباين`, `انحراف_معياري`, `مئوي` (percentile), `مدى`, `فهرس_أقصى`, `فهرس_أدنى`.
+- **Random (extended)**: `عشوائي_بين`, `اختر_عشوائي`, `خلط` (Fisher-Yates), `عيّنة` (n random without replacement), `عشوائي_منطقي`, `لون_عشوائي`.
+- **String (extended)**: `فهرس_نص`, `فهرس_نص_أخير`, `حرف_عند`, `جزء_نص`, `عدّ_تكرار_نص`, `كبّر_أوّل`, `كلمات`, `أسطر`, `فارغ؟`, `أمن_html` (XSS-safe escape).
+- **Arabic-specific**: `بدون_تشكيل` (strip diacritics), `وحّد_ألف` (إأآا → ا), `وحّد_همزة`, `وحّد_تاء`, `عربي؟`, `عدد_كلمات`, `تطبيع_عربي` (full normalize), `أرقام_عربية_إلى_غربية`, `أرقام_غربية_إلى_عربية`.
+- **Array (extended)**: `سطّح(depth)`, `سطّح_تماماً` (Infinity), `جد`, `جد_فهرس`, `كل` (every), `بعض` (some), `فهرس`, `يحوي_عنصر`, `قطع` (chunk), `خذ`, `اسقط`, `فرز_بـ` (sort by key fn).
+- **Object (extended)**: `أزواج` (entries), `ادمج_كائنات` (Object.assign), `نسخة_عميقة` (deep clone), `له_مفتاح`, `احذف_مفتاح`.
+- **Validation**: `بريد_صحيح؟`, `رابط_صحيح؟` (URL constructor), `هاتف_صحيح؟`.
+- **Color**: `سداسي_إلى_رغب` (hex→rgb), `رغب_إلى_سداسي`, `لون_رغب`, `لون_تدرج` (HSL).
+- **Hijri Calendar**: `سنة_هجرية`, `شهر_هجري`, `يوم_هجري`, `تاريخ_هجري` — uses `Intl.DateTimeFormat` with `islamic-umalqura` calendar (fallback to Julian-day approximation).
+- **Crypto/IDs**: `معرّف_فريد` (UUID), `بصمة` (djb2 hash), `ترميز_64`/`فك_64` (UTF-8-safe Base64).
+- **Audio** (Web Audio API): `نغمة(تردد، مدة)`, `صفير`, `انطق(text, lang?)` (SpeechSynthesis with `ar-SA` default).
+- **Performance**: `قياس(دالة)` returns elapsed milliseconds.
+- **Formatting**: `عملة` (Intl currency), `رقم_منسّق` (Intl number), `نسبة_مئوية`.
+- **Conversions**: `مئوي↔فهرنهايت`, `كم↔ميل`, `كغ↔رطل`.
+- **Storage (extended)**: `امسح_التخزين`, `مفاتيح_التخزين`, `له_مفتاح_تخزين`.
+- **Console helpers**: `أرني_خطأ` (red), `أرني_معلومة` (info-styled).
+
 ### Tier 5 — Pro-Language Features (added)
 - **Stack traces**: every `ArabicError` captures the call-stack snapshot (deepest first) at the throw site. The runner emits a multi-line "تتبّع الاستدعاءات" block showing each frame's function name + caller location. `callFunction` pushes/pops `{name, callerLoc}` frames; `execStmt` enriches errors with `loc` + `arabicStack` if missing.
 - **Module system**: `وحدة اسم : ... صدّر x، y انتهى` defines a module with an isolated `Environment`. `استورد x، y من اسم` copies whole `EnvEntry` objects (preserving type annotations + constness). `صدّر` is restricted to module-local bindings via `env.hasOwn(n)` (does not walk to globals/builtins). Functions retain `closure = modEnv` so they correctly resolve internal module names when called from importer scope.

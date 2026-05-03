@@ -19,7 +19,7 @@ export interface Token {
 
 function isArabicChar(ch: string): boolean {
   const code = ch.charCodeAt(0);
-  // Exclude Arabic punctuation: ، ؛ ؟ ٪ ٬ ٭ ؍ ؎ ؏ ؞ ؟
+  // Exclude Arabic punctuation: ، ؛ ؟ ٪ ٬ ٭ ؍ ؎ ؏ ؞
   if (code === 0x060C || code === 0x061B || code === 0x061F ||
       code === 0x066A || code === 0x066B || code === 0x066C ||
       code === 0x066D || code === 0x06D4) return false;
@@ -42,6 +42,8 @@ function isIdentPart(ch: string): boolean {
   const code = ch.charCodeAt(0);
   // Arabic diacritics (tashkeel) including shadda
   if (code >= 0x064B && code <= 0x065F) return true;
+  // Allow ؟ (U+061F) only INSIDE/at end of identifiers (Ruby/Scheme-style predicate suffix)
+  if (code === 0x061F) return true;
   return isIdentStart(ch) || /[0-9]/.test(ch) || ch === '_';
 }
 

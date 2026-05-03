@@ -679,6 +679,410 @@ export class Interpreter {
       self.emit(failed === 0 ? `✓ ${summary}` : `✗ ${summary}`, failed === 0 ? 'info' : 'error');
       return { نجح: passed, فشل: failed, مجموع: self.testRegistry.length };
     }});
+
+    // ╔═══════════════════════════════════════════════════════════╗
+    // ║         MEGA STDLIB — Tier 6: Big Library                ║
+    // ╚═══════════════════════════════════════════════════════════╝
+
+    // ── Math (extended) ──────────────────────────────────────────
+    g.define('لو2', { __b: true, fn: (x: number) => Math.log2(x) });
+    g.define('لو10', { __b: true, fn: (x: number) => Math.log10(x) });
+    g.define('أُس', { __b: true, fn: (x: number) => Math.exp(x) });
+    g.define('وتر', { __b: true, fn: (...xs: number[]) => Math.hypot(...xs) });
+    g.define('قاطع', { __b: true, fn: (a: number, b: number) => {
+      a = Math.abs(Math.trunc(a)); b = Math.abs(Math.trunc(b));
+      while (b) { [a, b] = [b, a % b]; } return a;
+    }});
+    g.define('مضاعف', { __b: true, fn: (a: number, b: number) => {
+      const gcd = (x: number, y: number): number => { x = Math.abs(Math.trunc(x)); y = Math.abs(Math.trunc(y)); while (y) [x, y] = [y, x % y]; return x; };
+      const g0 = gcd(a, b); return g0 === 0 ? 0 : Math.abs(a * b) / g0;
+    }});
+    g.define('مضروب', { __b: true, fn: (n: number) => {
+      n = Math.trunc(n);
+      if (n < 0) throw new ArabicError('المضروب لرقم سالب غير معرّف');
+      if (n > 170) throw new ArabicError('المضروب أكبر من المسموح');
+      let r = 1; for (let i = 2; i <= n; i++) r *= i; return r;
+    }});
+    g.define('فيبوناتشي', { __b: true, fn: (n: number) => {
+      n = Math.max(0, Math.trunc(n));
+      if (n < 2) return n;
+      let a = 0, b = 1; for (let i = 2; i <= n; i++) { [a, b] = [b, a + b]; } return b;
+    }});
+    g.define('أولي؟', { __b: true, fn: (n: number) => {
+      n = Math.trunc(n); if (n < 2) return false;
+      if (n < 4) return true; if (n % 2 === 0) return false;
+      for (let i = 3; i * i <= n; i += 2) if (n % i === 0) return false;
+      return true;
+    }});
+    g.define('قائمة_أوّليات', { __b: true, fn: (limit: number) => {
+      limit = Math.max(0, Math.trunc(limit));
+      if (limit > 1_000_000) throw new ArabicError(`الحد الأقصى لـ 'قائمة_أوّليات' هو 1،000،000 — طُلب ${limit}`);
+      const sieve = new Uint8Array(limit + 1);
+      const out: number[] = [];
+      for (let i = 2; i <= limit; i++) {
+        if (!sieve[i]) { out.push(i); for (let j = i * i; j <= limit; j += i) sieve[j] = 1; }
+      }
+      return out;
+    }});
+    g.define('قوس_جيب', { __b: true, fn: (x: number) => Math.asin(x) });
+    g.define('قوس_جيب_تمام', { __b: true, fn: (x: number) => Math.acos(x) });
+    g.define('قوس_ظل', { __b: true, fn: (x: number) => Math.atan(x) });
+    g.define('قوس_ظل2', { __b: true, fn: (y: number, x: number) => Math.atan2(y, x) });
+    g.define('إلى_راديان', { __b: true, fn: (deg: number) => deg * Math.PI / 180 });
+    g.define('إلى_درجات', { __b: true, fn: (rad: number) => rad * 180 / Math.PI });
+    g.define('مسافة', { __b: true, fn: (x1: number, y1: number, x2: number, y2: number) => Math.hypot(x2 - x1, y2 - y1) });
+
+    // ── Statistics ───────────────────────────────────────────────
+    g.define('وسيط', { __b: true, fn: (arr: number[]) => {
+      if (!arr.length) return 0;
+      const s = [...arr].sort((a, b) => a - b);
+      const m = s.length >> 1;
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    }});
+    g.define('منوال', { __b: true, fn: (arr: unknown[]) => {
+      const c: Record<string, { v: unknown; n: number }> = {};
+      let best: { v: unknown; n: number } | null = null;
+      for (const v of arr) {
+        const k = self.arabicStr(v);
+        const e = c[k] ?? { v, n: 0 }; e.n++; c[k] = e;
+        if (!best || e.n > best.n) best = e;
+      }
+      return best ? best.v : null;
+    }});
+    g.define('تباين', { __b: true, fn: (arr: number[]) => {
+      if (!arr.length) return 0;
+      const m = arr.reduce((a, b) => a + b, 0) / arr.length;
+      return arr.reduce((s, x) => s + (x - m) ** 2, 0) / arr.length;
+    }});
+    g.define('انحراف_معياري', { __b: true, fn: (arr: number[]) => {
+      if (!arr.length) return 0;
+      const m = arr.reduce((a, b) => a + b, 0) / arr.length;
+      return Math.sqrt(arr.reduce((s, x) => s + (x - m) ** 2, 0) / arr.length);
+    }});
+    g.define('مئوي', { __b: true, fn: (arr: number[], p: number) => {
+      if (!arr.length) return 0;
+      const s = [...arr].sort((a, b) => a - b);
+      const i = Math.max(0, Math.min(s.length - 1, Math.round((p / 100) * (s.length - 1))));
+      return s[i];
+    }});
+    g.define('مدى', { __b: true, fn: (arr: number[]) => arr.length ? Math.max(...arr) - Math.min(...arr) : 0 });
+    g.define('فهرس_أقصى', { __b: true, fn: (arr: number[]) => {
+      let bi = -1, bv = -Infinity;
+      for (let i = 0; i < arr.length; i++) if (arr[i] > bv) { bv = arr[i]; bi = i; }
+      return bi;
+    }});
+    g.define('فهرس_أدنى', { __b: true, fn: (arr: number[]) => {
+      let bi = -1, bv = Infinity;
+      for (let i = 0; i < arr.length; i++) if (arr[i] < bv) { bv = arr[i]; bi = i; }
+      return bi;
+    }});
+
+    // ── Random (extended) ────────────────────────────────────────
+    g.define('عشوائي_بين', { __b: true, fn: (lo: number, hi: number) => Math.random() * (hi - lo) + lo });
+    g.define('اختر_عشوائي', { __b: true, fn: (arr: unknown[]) => {
+      if (!arr.length) return null;
+      return arr[Math.floor(Math.random() * arr.length)];
+    }});
+    g.define('خلط', { __b: true, fn: (arr: unknown[]) => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }});
+    g.define('عيّنة', { __b: true, fn: (arr: unknown[], n: number) => {
+      const a = [...arr]; const out: unknown[] = []; n = Math.min(Math.max(0, Math.trunc(n)), a.length);
+      for (let i = 0; i < n; i++) {
+        const j = Math.floor(Math.random() * a.length);
+        out.push(a.splice(j, 1)[0]);
+      }
+      return out;
+    }});
+    g.define('عشوائي_منطقي', { __b: true, fn: () => Math.random() < 0.5 });
+    g.define('لون_عشوائي', { __b: true, fn: () => {
+      const h = Math.floor(Math.random() * 360);
+      return `hsl(${h}، 70%، 55%)`.replace(/،/g, ',');
+    }});
+
+    // ── String (extended) ────────────────────────────────────────
+    g.define('فهرس_نص', { __b: true, fn: (s: string, sub: string) => String(s).indexOf(String(sub)) });
+    g.define('فهرس_نص_أخير', { __b: true, fn: (s: string, sub: string) => String(s).lastIndexOf(String(sub)) });
+    g.define('حرف_عند', { __b: true, fn: (s: string, i: number) => String(s).charAt(Math.trunc(i)) });
+    g.define('جزء_نص', { __b: true, fn: (s: string, start: number, end?: number) => String(s).substring(Math.trunc(start), end === undefined ? undefined : Math.trunc(end)) });
+    g.define('عدّ_تكرار_نص', { __b: true, fn: (s: string, sub: string) => {
+      if (!sub) return 0;
+      const arr = String(s).split(String(sub));
+      return arr.length - 1;
+    }});
+    g.define('كبّر_أوّل', { __b: true, fn: (s: string) => { s = String(s); return s ? s[0].toUpperCase() + s.slice(1) : s; }});
+    g.define('كلمات', { __b: true, fn: (s: string) => String(s).trim().split(/\s+/).filter(Boolean) });
+    g.define('أسطر', { __b: true, fn: (s: string) => String(s).split(/\r?\n/) });
+    g.define('فارغ؟', { __b: true, fn: (v: unknown) => {
+      if (v === null || v === undefined) return true;
+      if (typeof v === 'string') return v.length === 0;
+      if (Array.isArray(v)) return v.length === 0;
+      if (typeof v === 'object') return Object.keys(v as object).length === 0;
+      return false;
+    }});
+    g.define('أمن_html', { __b: true, fn: (s: string) => String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;') });
+
+    // ── Arabic text (Arabic-specific!) ───────────────────────────
+    g.define('بدون_تشكيل', { __b: true, fn: (s: string) => String(s).replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '') });
+    g.define('وحّد_ألف', { __b: true, fn: (s: string) => String(s).replace(/[إأآا]/g, 'ا') });
+    g.define('وحّد_همزة', { __b: true, fn: (s: string) => String(s).replace(/[ؤئء]/g, 'ء') });
+    g.define('وحّد_تاء', { __b: true, fn: (s: string) => String(s).replace(/ة/g, 'ه') });
+    g.define('عربي؟', { __b: true, fn: (s: string) => /[\u0600-\u06FF]/.test(String(s)) });
+    g.define('عدد_كلمات', { __b: true, fn: (s: string) => {
+      const t = String(s).trim();
+      return t ? t.split(/\s+/).length : 0;
+    }});
+    g.define('تطبيع_عربي', { __b: true, fn: (s: string) => String(s)
+      .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+      .replace(/[إأآا]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').trim() });
+    g.define('أرقام_عربية_إلى_غربية', { __b: true, fn: (s: string) => String(s).replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))) });
+    g.define('أرقام_غربية_إلى_عربية', { __b: true, fn: (s: string) => String(s).replace(/[0-9]/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]) });
+
+    // ── Array (extended) ─────────────────────────────────────────
+    g.define('سطّح', { __b: true, fn: (arr: unknown[], depth = 1) => (arr as unknown[]).flat(Math.max(0, Math.trunc(depth))) });
+    g.define('سطّح_تماماً', { __b: true, fn: (arr: unknown[]) => (arr as unknown[]).flat(Infinity) });
+    g.define('جد', { __b: true, fn: (arr: unknown[], fn: ArabicFunction) => {
+      for (const x of arr) if (self.isTruthy(self.callFunction(fn, [x]))) return x;
+      return null;
+    }});
+    g.define('جد_فهرس', { __b: true, fn: (arr: unknown[], fn: ArabicFunction) => {
+      for (let i = 0; i < arr.length; i++) if (self.isTruthy(self.callFunction(fn, [arr[i]]))) return i;
+      return -1;
+    }});
+    g.define('كل', { __b: true, fn: (arr: unknown[], fn: ArabicFunction) => arr.every(x => self.isTruthy(self.callFunction(fn, [x]))) });
+    g.define('بعض', { __b: true, fn: (arr: unknown[], fn: ArabicFunction) => arr.some(x => self.isTruthy(self.callFunction(fn, [x]))) });
+    g.define('فهرس', { __b: true, fn: (arr: unknown[], v: unknown) => {
+      for (let i = 0; i < arr.length; i++) if (self.deepEqual(arr[i], v)) return i;
+      return -1;
+    }});
+    g.define('يحوي_عنصر', { __b: true, fn: (arr: unknown[], v: unknown) => arr.some(x => self.deepEqual(x, v)) });
+    g.define('قطع', { __b: true, fn: (arr: unknown[], size: number) => {
+      size = Math.max(1, Math.trunc(size));
+      const out: unknown[][] = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
+    }});
+    g.define('خذ', { __b: true, fn: (arr: unknown[], n: number) => arr.slice(0, Math.max(0, Math.trunc(n))) });
+    g.define('اسقط', { __b: true, fn: (arr: unknown[], n: number) => arr.slice(Math.max(0, Math.trunc(n))) });
+    g.define('فرز_بـ', { __b: true, fn: (arr: unknown[], fn: ArabicFunction) => [...arr].sort((a, b) => {
+      const ka = self.callFunction(fn, [a]) as number; const kb = self.callFunction(fn, [b]) as number;
+      if (typeof ka === 'string' && typeof kb === 'string') return (ka as string).localeCompare(kb as string);
+      return (ka as number) - (kb as number);
+    })});
+
+    // ── Object (extended) ────────────────────────────────────────
+    g.define('أزواج', { __b: true, fn: (obj: Record<string, unknown>) => Object.entries(obj).map(([k, v]) => [k, v]) });
+    g.define('ادمج_كائنات', { __b: true, fn: (...objs: Record<string, unknown>[]) => Object.assign({}, ...objs) });
+    g.define('نسخة_عميقة', { __b: true, fn: (v: unknown) => {
+      try { return JSON.parse(JSON.stringify(v)); }
+      catch { throw new ArabicError('لا يمكن نسخ هذه القيمة عميقاً'); }
+    }});
+    g.define('له_مفتاح', { __b: true, fn: (obj: Record<string, unknown>, k: string) => obj !== null && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, String(k)) });
+    g.define('احذف_مفتاح', { __b: true, fn: (obj: Record<string, unknown>, k: string) => { if (obj && typeof obj === 'object') delete obj[String(k)]; return obj; } });
+
+    // ── Validation ───────────────────────────────────────────────
+    g.define('بريد_صحيح؟', { __b: true, fn: (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s)) });
+    g.define('رابط_صحيح؟', { __b: true, fn: (s: string) => { try { new URL(String(s)); return true; } catch { return false; } } });
+    g.define('هاتف_صحيح؟', { __b: true, fn: (s: string) => /^[+]?[\d\s\-()٠-٩]{6,}$/.test(String(s)) });
+
+    // ── Color helpers ────────────────────────────────────────────
+    g.define('سداسي_إلى_رغب', { __b: true, fn: (hex: string) => {
+      const h = String(hex).replace('#', '');
+      if (!/^[0-9a-fA-F]+$/.test(h) || (h.length !== 6 && h.length !== 3)) {
+        throw new ArabicError(`لون سداسي غير صالح: '${hex}' (يجب أن يكون 3 أو 6 أحرف 0-9 / a-f)`);
+      }
+      const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+      return [parseInt(full.slice(0, 2), 16), parseInt(full.slice(2, 4), 16), parseInt(full.slice(4, 6), 16)];
+    }});
+    g.define('رغب_إلى_سداسي', { __b: true, fn: (r: number, g2: number, b: number) => {
+      const c = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+      return '#' + c(r) + c(g2) + c(b);
+    }});
+    g.define('لون_رغب', { __b: true, fn: (r: number, g2: number, b: number) => `rgb(${Math.round(r)},${Math.round(g2)},${Math.round(b)})` });
+    g.define('لون_تدرج', { __b: true, fn: (h: number, s = 70, l = 55) => `hsl(${h},${s}%,${l}%)` });
+
+    // ── Hijri Calendar (Umm al-Qura via Intl) ────────────────────
+    const hijriParts = (input: unknown): { year: number; month: number; day: number } => {
+      // Coerce to Date safely (accept Date, string, number, or undefined → now)
+      const d: Date = input instanceof Date ? input
+        : (input === undefined || input === null) ? new Date()
+        : new Date(input as string | number);
+      if (isNaN(d.getTime())) throw new ArabicError(`تاريخ غير صالح: '${self.arabicStr(input)}'`);
+      try {
+        const fmt = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', { year: 'numeric', month: 'numeric', day: 'numeric' });
+        const parts = fmt.formatToParts(d);
+        const get = (t: string) => Number((parts.find(p => p.type === t)?.value ?? '0').replace(/[٠-٩]/g, c => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))));
+        return { year: get('year'), month: get('month'), day: get('day') };
+      } catch {
+        // Approximate fallback
+        const julianDay = Math.floor(d.getTime() / 86400000) + 2440588;
+        const islamicEpoch = 1948440;
+        const days = julianDay - islamicEpoch;
+        const year = Math.floor((30 * days + 10646) / 10631);
+        const yearStart = Math.ceil((10631 * year - 10617) / 30);
+        const dayOfYear = days - yearStart + 1;
+        const month = Math.min(12, Math.ceil(dayOfYear / 29.5));
+        const day = dayOfYear - Math.floor((month - 1) * 29.5);
+        return { year, month, day };
+      }
+    };
+    g.define('سنة_هجرية', { __b: true, fn: (d?: Date) => hijriParts(d ?? new Date()).year });
+    g.define('شهر_هجري', { __b: true, fn: (d?: Date) => hijriParts(d ?? new Date()).month });
+    g.define('يوم_هجري', { __b: true, fn: (d?: Date) => hijriParts(d ?? new Date()).day });
+    const hijriMonthNames = ['محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'];
+    g.define('تاريخ_هجري', { __b: true, fn: (d?: Date) => {
+      const h = hijriParts(d ?? new Date());
+      return `${h.day} ${hijriMonthNames[h.month - 1] ?? ''} ${h.year}هـ`;
+    }});
+
+    // ── Crypto / IDs ─────────────────────────────────────────────
+    g.define('معرّف_فريد', { __b: true, fn: () => {
+      try {
+        if (typeof crypto !== 'undefined' && (crypto as Crypto).randomUUID) return (crypto as Crypto).randomUUID();
+      } catch { /* fallthrough */ }
+      // RFC4122-ish fallback
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      });
+    }});
+    g.define('بصمة', { __b: true, fn: (s: string) => {
+      // Simple djb2 hash → unsigned hex
+      let h = 5381;
+      for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+      return (h >>> 0).toString(16);
+    }});
+    const utf8ToBytes = (s: string): Uint8Array => new TextEncoder().encode(s);
+    const bytesToUtf8 = (b: Uint8Array): string => new TextDecoder().decode(b);
+    g.define('ترميز_64', { __b: true, fn: (s: string) => {
+      if (typeof btoa === 'undefined') throw new ArabicError('الترميز Base64 غير متاح في هذه البيئة');
+      try {
+        const bytes = utf8ToBytes(String(s));
+        let bin = '';
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        return btoa(bin);
+      } catch (e) {
+        throw new ArabicError(`فشل ترميز Base64: ${(e as Error).message}`);
+      }
+    }});
+    g.define('فك_64', { __b: true, fn: (s: string) => {
+      if (typeof atob === 'undefined') throw new ArabicError('فك Base64 غير متاح في هذه البيئة');
+      try {
+        const bin = atob(String(s));
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytesToUtf8(bytes);
+      } catch {
+        throw new ArabicError(`نص Base64 غير صالح: '${String(s).slice(0, 20)}${String(s).length > 20 ? '...' : ''}'`);
+      }
+    }});
+
+    // ── Storage (extended) ───────────────────────────────────────
+    g.define('امسح_التخزين', { __b: true, fn: () => {
+      if (typeof window === 'undefined' || !window.localStorage) return null;
+      const keys: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k?.startsWith('arabica_') && !k.startsWith('arabica_model_')) keys.push(k);
+      }
+      keys.forEach(k => window.localStorage.removeItem(k));
+      return keys.length;
+    }});
+    g.define('مفاتيح_التخزين', { __b: true, fn: () => {
+      if (typeof window === 'undefined' || !window.localStorage) return [];
+      const out: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k?.startsWith('arabica_') && !k.startsWith('arabica_model_')) out.push(k.replace('arabica_', ''));
+      }
+      return out;
+    }});
+    g.define('له_مفتاح_تخزين', { __b: true, fn: (k: string) => {
+      if (typeof window === 'undefined' || !window.localStorage) return false;
+      return window.localStorage.getItem(`arabica_${k}`) !== null;
+    }});
+
+    // ── Audio ────────────────────────────────────────────────────
+    let audioCtx: AudioContext | null = null;
+    const getAudio = (): AudioContext | null => {
+      if (typeof window === 'undefined') return null;
+      const W = window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
+      const Ctor = W.AudioContext ?? W.webkitAudioContext;
+      if (!Ctor) return null;
+      if (!audioCtx) audioCtx = new Ctor();
+      return audioCtx;
+    };
+    g.define('نغمة', { __b: true, fn: (freq = 440, duration = 0.2) => {
+      const ctx = getAudio(); if (!ctx) return null;
+      // Clamp to safe audio ranges to prevent WebAudio errors / abuse
+      const f = Number(freq);
+      const dur = Number(duration);
+      const safeFreq = (isNaN(f) ? 440 : Math.max(20, Math.min(20000, f)));
+      const safeDur = (isNaN(dur) ? 0.2 : Math.max(0.01, Math.min(5, dur)));
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.frequency.value = safeFreq; osc.type = 'sine';
+      osc.connect(gain); gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + safeDur);
+      osc.start(); osc.stop(ctx.currentTime + safeDur + 0.05);
+      return null;
+    }});
+    g.define('صفير', { __b: true, fn: () => {
+      const ctx = getAudio(); if (!ctx) return null;
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.frequency.value = 880; osc.connect(gain); gain.connect(ctx.destination);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.start(); osc.stop(ctx.currentTime + 0.2);
+      return null;
+    }});
+    g.define('انطق', { __b: true, fn: (text: string, lang = 'ar-SA') => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+      const u = new SpeechSynthesisUtterance(self.arabicStr(text));
+      u.lang = String(lang);
+      window.speechSynthesis.speak(u);
+      return null;
+    }});
+
+    // ── Performance / timing ─────────────────────────────────────
+    g.define('قياس', { __b: true, fn: (fn: ArabicFunction) => {
+      if (!(fn instanceof ArabicFunction)) throw new ArabicError(`'قياس' يحتاج دالة`);
+      const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      self.callFunction(fn, []);
+      const t1 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      return Math.round((t1 - t0) * 1000) / 1000;
+    }});
+
+    // ── Console color/style helpers ──────────────────────────────
+    g.define('أرني_خطأ', { __b: true, fn: (...args: unknown[]) => { self.emit(args.map(a => self.arabicStr(a)).join(' '), 'error'); return null; } });
+    g.define('أرني_معلومة', { __b: true, fn: (...args: unknown[]) => { self.emit(args.map(a => self.arabicStr(a)).join(' '), 'info'); return null; } });
+
+    // ── Money/format ─────────────────────────────────────────────
+    g.define('عملة', { __b: true, fn: (n: number, currency = 'SAR', locale = 'ar-SA') => {
+      try { return new Intl.NumberFormat(String(locale), { style: 'currency', currency: String(currency) }).format(Number(n)); }
+      catch { return `${Number(n).toFixed(2)} ${currency}`; }
+    }});
+    g.define('رقم_منسّق', { __b: true, fn: (n: number, locale = 'ar-SA') => {
+      try { return new Intl.NumberFormat(String(locale)).format(Number(n)); }
+      catch { return String(n); }
+    }});
+    g.define('نسبة_مئوية', { __b: true, fn: (n: number, decimals = 1) => `${(Number(n) * 100).toFixed(Math.max(0, Math.trunc(decimals)))}%` });
+
+    // ── Conversions ──────────────────────────────────────────────
+    g.define('مئوي_إلى_فهرنهايت', { __b: true, fn: (c: number) => c * 9 / 5 + 32 });
+    g.define('فهرنهايت_إلى_مئوي', { __b: true, fn: (f: number) => (f - 32) * 5 / 9 });
+    g.define('كم_إلى_ميل', { __b: true, fn: (km: number) => km * 0.621371 });
+    g.define('ميل_إلى_كم', { __b: true, fn: (mi: number) => mi / 0.621371 });
+    g.define('كغ_إلى_رطل', { __b: true, fn: (kg: number) => kg * 2.20462 });
+    g.define('رطل_إلى_كغ', { __b: true, fn: (lb: number) => lb / 2.20462 });
   }
 
   private callFunction(fn: ArabicFunction, args: unknown[], thisObj?: unknown): unknown {
