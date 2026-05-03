@@ -72,18 +72,32 @@ export class Interpreter {
   }
 
   private arabicStr(v: unknown): string {
-    if (v === null || v === undefined) return 'فارغ';
-    if (v === true) return 'صحيح';
-    if (v === false) return 'خطأ';
+    if (v === null || v === undefined) return 'عدم';
+    if (v === true) return 'صدق';
+    if (v === false) return 'كذب';
     if (v instanceof ShebkaAsabiyya) return v.summary();
-    if (v instanceof ArabicFunction) return `[دالة: ${v.name ?? 'مجهولة'}]`;
+    if (v instanceof ArabicFunction) return `[مهمّة: ${v.name ?? 'مجهولة'}]`;
     if (Array.isArray(v)) return '[' + v.map((x) => this.arabicStr(x)).join('، ') + ']';
     if (typeof v === 'object' && v !== null) {
-      const entries = Object.entries(v as Record<string, unknown>)
+      const obj = v as Record<string, unknown>;
+      const structName = obj.__struct__ as string | undefined;
+      const entries = Object.entries(obj)
+        .filter(([k]) => k !== '__struct__')
         .map(([k, val]) => `${k}: ${this.arabicStr(val)}`);
-      return '{' + entries.join('، ') + '}';
+      const inner = entries.join('، ');
+      return structName ? `${structName}{${inner}}` : `{${inner}}`;
     }
     return String(v);
+  }
+
+  private deepEqual(a: unknown, b: unknown): boolean {
+    if (a === b) return true;
+    if (Array.isArray(a) && Array.isArray(b)) {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) if (!this.deepEqual(a[i], b[i])) return false;
+      return true;
+    }
+    return false;
   }
 
   private tick() {
@@ -95,9 +109,9 @@ export class Interpreter {
     const g = this.globals;
     const self = this;
 
-    // Print
-    g.define('اطبع', { __b: true, fn: (...args: unknown[]) => { self.emit(args.map(a => self.arabicStr(a)).join(' ')); return null; } });
-    g.define('طباعة', { __b: true, fn: (...args: unknown[]) => { self.emit(args.map(a => self.arabicStr(a)).join(' ')); return null; } });
+    // Print  ("show me")
+    g.define('أرني', { __b: true, fn: (...args: unknown[]) => { self.emit(args.map(a => self.arabicStr(a)).join(' ')); return null; } });
+    g.define('ارني', { __b: true, fn: (...args: unknown[]) => { self.emit(args.map(a => self.arabicStr(a)).join(' ')); return null; } });
     g.define('أدخل', { __b: true, fn: (prompt?: string) => { self.emit(`[إدخال: ${prompt ?? ''}]`, 'info'); return ''; } });
     g.define('مسح', { __b: true, fn: () => { self.lines = []; return null; } });
 
@@ -283,6 +297,61 @@ export class Interpreter {
       case 'FunctionDecl': {
         const fn = new ArabicFunction(s.params as string[], s.body, env, s.name as string);
         env.define(s.name as string, fn);
+        break;
+      }
+      case 'StructDecl': {
+        const fields = s.fields as string[];
+        const structName = s.name as string;
+        const ctor = {
+          __b: true,
+          fn: (...args: unknown[]) => {
+            const obj: Record<string, unknown> = { __struct__: structName };
+            fields.forEach((f, i) => { obj[f] = args[i] ?? null; });
+            return obj;
+          },
+        };
+        env.define(structName, ctor);
+        break;
+      }
+      case 'ForEachStatement': {
+        const iterable = this.evalExpr(s.iterable, env);
+        const items: unknown[] = Array.isArray(iterable)
+          ? iterable
+          : (typeof iterable === 'string' ? Array.from(iterable as string) : []);
+        if (!Array.isArray(iterable) && typeof iterable !== 'string') {
+          throw new ArabicError('لا يمكن المرور إلا على القوائم والنصوص');
+        }
+        const loopVar = s.variable as string;
+        for (const item of items) {
+          this.tick();
+          try {
+            const loopEnv = new Environment(env);
+            loopEnv.define(loopVar, item);
+            this.execBlock((s.body as { body: unknown[] }).body, loopEnv);
+          } catch (er) {
+            if (er instanceof BreakSignal) break;
+            if (er instanceof ContinueSignal) continue;
+            throw er;
+          }
+        }
+        break;
+      }
+      case 'MatchStatement': {
+        const matchValue = this.evalExpr(s.value, env);
+        const cases = s.cases as { value: unknown | null; body: unknown[] }[];
+        for (const c of cases) {
+          let matched = false;
+          if (c.value === null) {
+            matched = true; // wildcard _
+          } else {
+            const cv = this.evalExpr(c.value, env);
+            matched = this.deepEqual(matchValue, cv);
+          }
+          if (matched) {
+            this.execBlock(c.body, new Environment(env));
+            break;
+          }
+        }
         break;
       }
       case 'IfStatement': {

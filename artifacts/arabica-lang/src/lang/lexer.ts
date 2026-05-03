@@ -18,6 +18,13 @@ export interface Token {
 
 function isArabicChar(ch: string): boolean {
   const code = ch.charCodeAt(0);
+  // Exclude Arabic punctuation: ، ؛ ؟ ٪ ٬ ٭ ؍ ؎ ؏ ؞ ؟
+  if (code === 0x060C || code === 0x061B || code === 0x061F ||
+      code === 0x066A || code === 0x066B || code === 0x066C ||
+      code === 0x066D || code === 0x06D4) return false;
+  // Exclude Arabic digits (handled separately)
+  if (code >= 0x0660 && code <= 0x0669) return false;
+  if (code >= 0x06F0 && code <= 0x06F9) return false;
   return (
     (code >= 0x0600 && code <= 0x06FF) ||
     (code >= 0x0750 && code <= 0x077F) ||
@@ -47,8 +54,8 @@ function toWesternDigit(ch: string): string {
   return idx >= 0 ? idx.toString() : ch;
 }
 
-const BOOLEANS = new Set(['صحيح', 'خطأ', 'خطا', 'نعم', 'لا']);
-const NULLS = new Set(['فارغ', 'لا_شيء', 'لاشيء']);
+const BOOLEANS = new Set(['صدق', 'حق', 'كذب', 'باطل']);
+const NULLS = new Set(['عدم', 'لاشيء', 'لا_شيء']);
 
 export function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
@@ -127,7 +134,7 @@ export function tokenize(source: string): Token[] {
         ident += advance();
       }
       if (BOOLEANS.has(ident)) {
-        push('BOOLEAN', (ident === 'صحيح' || ident === 'نعم') ? 'true' : 'false', sl, sc);
+        push('BOOLEAN', (ident === 'صدق' || ident === 'حق') ? 'true' : 'false', sl, sc);
       } else if (NULLS.has(ident)) {
         push('NULL', 'null', sl, sc);
       } else {

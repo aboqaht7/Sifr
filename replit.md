@@ -19,15 +19,21 @@ pnpm workspace monorepo using TypeScript. Contains the **عربيكا (Arabica)*
 
 The main artifact at `artifacts/arabica-lang/` implements a complete Arabic programming language with:
 
-### Language Features
-- Variables: `عرّف س = 5` / `ثابت ط = 3.14`
-- Functions: `دالة جمع(أ، ب) { أعِد أ + ب }`
-- If/else: `إذا (شرط) { ... } وإلا { ... }`
-- While loops: `طالما (شرط) { ... }`
-- For loops: `لكل ع من 1 حتى 10 { ... }` (supports `بخطوة`)
-- Arrays: `[1، 2، 3]` with built-in functions
-- Objects: `{اسم: "محمد"، عمر: 25}`
-- Recursion, closures, higher-order functions
+### Language Features (UNIQUE syntax — not a translation of any language)
+Block delimiters: `:` opens a block, `انتهى` closes it (Pascal-inspired but distinctive).
+
+- Variables: `كنز س = 5` (treasure)
+- Constants: `سرّ ط = 3.14` (secret)
+- Functions: `مهمّة جمع(أ، ب) : أعد أ + ب  انتهى` (mission)
+- Structs: `بنية طالب : اسم درجة انتهى` → `طالب("أحمد"، 95)`
+- If/else: `إن شرط : ... وإلا إن شرط٢ : ... وإلا : ... انتهى`
+- While: `كرر شرط : ... انتهى` (repeat)
+- For range: `جوال ع من 1 إلى 10 [بخطوة 2] : ... انتهى` (traveler)
+- Foreach: `جوال ك في قائمة : ... انتهى`
+- Match: `طابق ن : حال 1 : ... حال _ : ... انتهى`
+- Booleans: `صدق` / `كذب` ; null: `عدم`
+- Print: `أرني(...)` ; return: `أعد` ; break: `قف` ; continue: `استمر`
+- Arrays, objects, recursion, closures, higher-order functions
 
 ### Built-in AI Functions
 - `شبكة_عصبية([2، 4، 1])` — create feedforward neural network
