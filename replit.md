@@ -31,10 +31,10 @@ The project utilizes a pnpm monorepo structure with Node.js 24 and TypeScript 5.
 - **Streams API:** A lazy-evaluated Streams API for efficient data processing on collections, supporting source, lazy, and terminal operations.
 - **Algorithms:** Built-in algorithms for sorting (quicksort, mergesort), searching (binary, linear), string similarity (Levenshtein), and graph traversal (DFS, BFS, shortest path).
 
-**Sifr-Native AI Model (نموذج_صِفر):**
+**Sifr-Native AI Model (نموذج_صِفر v2):**
 - A complete Arabic AI assistant written 100% in Sifr code (no external APIs/libraries).
-- Components: Arabic tokenizer/normalizer, vocabulary builder, Bigram language model (weighted random next-word generation), bag-of-words vectorizer, cosine-similarity retrieval engine over a Q&A knowledge base.
-- Lives as the `sifr-model` example in `ExamplesPanel.tsx`. Demonstrates training, generation, and intent-style retrieval with confidence scores — fully offline in the browser.
+- Components: Arabic tokenizer/normalizer, vocabulary builder, **Trigram** language model (weighted random next-word generation looking back 2 words), **TF-IDF** vectorizer (rare-word weighting via IDF), cosine-similarity retrieval engine over an expanded Q&A knowledge base (24 entries × 5 intent classes), and a **neural intent classifier** built on `شبكة_عصبية` with sigmoid+softmax activations trained on L2-normalized full-vocabulary vectors.
+- Lives as the `sifr-model` example in `ExamplesPanel.tsx`. Demonstrates end-to-end training (tokenize → vocab → IDF → trigram → neural classifier), generation (Trigram seeded with two words), and intent classification + retrieval with confidence scores — fully offline in the browser.
 
 **IDE Features:**
 - **RTL Code Editor:** A custom `CodeEditor.tsx` component designed for right-to-left languages with syntax highlighting.
