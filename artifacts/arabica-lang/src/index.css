@@ -1,38 +1,45 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
-/* ===== ARABIC LANGUAGE IDE THEME ===== */
+/* ===== SIFR ENTERPRISE THEME ===== */
 :root {
-  --bg-base: #080e1c;
-  --bg-surface: #0f1b2d;
-  --bg-elevated: #162033;
-  --bg-hover: #1e2d45;
-  --bg-active: #1a2a40;
+  --bg-base: #07080d;
+  --bg-surface: #0d1017;
+  --bg-elevated: #131722;
+  --bg-hover: #1a1f2e;
+  --bg-active: #1d2332;
 
   --gold: #d4a843;
   --gold-dim: #a07830;
   --gold-bright: #f0c060;
-  --green: #3dd68c;
-  --green-dim: #2aaa6e;
+  --accent: #6366f1;
+  --accent-bright: #818cf8;
+  --green: #10b981;
+  --green-dim: #059669;
   --blue: #60a5fa;
-  --red: #f87171;
-  --purple: #c084fc;
-  --orange: #fb923c;
-  --cyan: #22d3ee;
+  --red: #ef4444;
+  --purple: #a78bfa;
+  --orange: #f97316;
+  --cyan: #06b6d4;
 
-  --text-primary: #e8dcc8;
-  --text-secondary: #9ba3b8;
-  --text-muted: #5a6478;
+  --text-primary: #e6e8ef;
+  --text-secondary: #9aa3b8;
+  --text-muted: #5b647a;
   --text-code: #cdd6f4;
 
-  --border: #1e2d45;
-  --border-bright: #2a3f5f;
+  --border: #1a1f2e;
+  --border-bright: #242a3d;
 
-  --font-arabic: 'Noto Naskh Arabic', 'Segoe UI', sans-serif;
-  --font-mono: 'IBM Plex Mono', 'Consolas', 'Monaco', monospace;
+  --font-arabic: 'Noto Naskh Arabic', -apple-system, 'Segoe UI', sans-serif;
+  --font-display: -apple-system, 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'JetBrains Mono', 'Consolas', monospace;
 
-  --radius: 8px;
-  --radius-lg: 12px;
+  --radius: 6px;
+  --radius-lg: 10px;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow: 0 4px 16px rgba(0,0,0,0.35);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.45);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -58,41 +65,72 @@ html, body {
   overflow: hidden;
 }
 
-/* ===== HEADER ===== */
+/* ===== HEADER (Enterprise) ===== */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
-  background: var(--bg-surface);
+  padding: 12px 24px;
+  background: linear-gradient(180deg, var(--bg-surface) 0%, rgba(13,16,23,0.95) 100%);
   border-bottom: 1px solid var(--border-bright);
   flex-shrink: 0;
-  gap: 12px;
+  gap: 16px;
+  backdrop-filter: blur(8px);
+  position: relative;
+}
+.header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  bottom: -1px; top: auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,168,67,0.4), transparent);
+  pointer-events: none;
 }
 
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .header-logo {
-  width: 40px; height: 40px;
-  background: linear-gradient(135deg, var(--gold), var(--gold-dim));
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg, #1a1f2e 0%, #0d1017 100%);
+  border: 1px solid rgba(212, 168, 67, 0.35);
   border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.4rem; font-weight: bold; color: var(--bg-base);
-  font-family: var(--font-arabic);
-  box-shadow: 0 0 20px rgba(212, 168, 67, 0.3);
+  font-size: 1.5rem; font-weight: 700;
+  color: var(--gold-bright);
+  font-family: var(--font-display);
+  box-shadow: 0 0 24px rgba(212, 168, 67, 0.18), inset 0 1px 0 rgba(255,255,255,0.04);
   flex-shrink: 0;
+  letter-spacing: -0.02em;
 }
 
 .header-text h1 {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  color: var(--gold);
+  color: var(--text-primary);
   line-height: 1.2;
   font-family: var(--font-arabic);
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header-text h1::after {
+  content: 'Enterprise';
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--gold-bright);
+  background: rgba(212, 168, 67, 0.1);
+  border: 1px solid rgba(212, 168, 67, 0.25);
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
 }
 
 .header-text p {
@@ -109,22 +147,50 @@ html, body {
 }
 
 .btn-ghost {
-  padding: 6px 12px;
-  background: transparent;
+  padding: 7px 13px;
+  background: rgba(255,255,255,0.02);
   border: 1px solid var(--border-bright);
   border-radius: var(--radius);
   color: var(--text-secondary);
   font-family: var(--font-arabic);
   font-size: 0.82rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  letter-spacing: -0.01em;
 }
 
 .btn-ghost:hover, .btn-ghost.active {
   background: var(--bg-hover);
-  border-color: var(--gold-dim);
-  color: var(--gold);
+  border-color: rgba(212,168,67,0.4);
+  color: var(--gold-bright);
+  box-shadow: var(--shadow-sm), 0 0 12px rgba(212,168,67,0.08);
+}
+
+.btn-vscode {
+  padding: 7px 13px;
+  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  border: 1px solid rgba(96,165,250,0.4);
+  border-radius: var(--radius);
+  color: #dbeafe;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-vscode:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  box-shadow: 0 4px 16px rgba(37,99,235,0.35);
+  transform: translateY(-1px);
 }
 
 .btn-run {

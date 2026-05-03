@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is a pnpm workspace monorepo centered around the development of **عربيكا (Arabica)**, a unique Arabic programming language IDE. The primary goal is to provide a comprehensive and intuitive development environment for an Arabic-first programming language, featuring a distinctive syntax and a rich set of built-in functionalities. The project aims to bring a complete Arabic programming experience, from core language features to advanced capabilities like AI, collections, and DOM manipulation, making programming accessible and natural for Arabic speakers.
+This project is a pnpm workspace monorepo centered around the development of **صِفر (Sifr)**, a unique Arabic programming language IDE (workspace package id remains `@workspace/arabica-lang`). The primary goal is to provide a comprehensive and intuitive development environment for an Arabic-first programming language, featuring a distinctive syntax and a rich set of built-in functionalities. The project aims to bring a complete Arabic programming experience, from core language features to advanced capabilities like AI, collections, and DOM manipulation, making programming accessible and natural for Arabic speakers.
 
 ## User Preferences
 
@@ -42,6 +42,18 @@ The project utilizes a pnpm monorepo structure with Node.js 24 and TypeScript 5.
 **AI Capabilities:**
 - **Neural Networks:** `شبكة_عصبية` (ShebkaAsabiyya) class for neural network creation, supporting multiple activation functions (`ريلو`, `سيغمويد`, `ظل_زائدي`, `سوفت_ماكس`, `خطّي`) and smart weight initialization.
 - **Model Management:** Functions to save and load AI models to/from local storage.
+- **عبدالله Example:** Complete ready-to-use AI demo (`abdullah-ai`) — a 4-feature health classifier (age/glucose/weight/pressure) trained on 16 samples, with a `شخّص` prediction function and model persistence.
+
+**VSCode Extension (`vscode-sifr/`):**
+- Standalone TextMate grammar extension for Sifr at the repo root.
+- Files: `package.json`, `language-configuration.json`, `syntaxes/sifr.tmLanguage.json`, `README.md`.
+- Highlights keywords (كنز/سرّ/مهمّة/إن/جوال/طابق/بنية/وحدة/…), built-ins, types, and template literals.
+- Supports `.sifr`, `.صفر`, `.arb` file extensions; manual install or `vsce package`.
+
+**Enterprise Visual Theme:**
+- Refined dark palette (#07080d base) with subdued gold accent and `Enterprise` badge.
+- Logo updated to `Σ` (Sigma) for a corporate identity.
+- Header includes a dedicated VSCode link button (linking to `vscode-sifr/`).
 
 ## External Dependencies
 

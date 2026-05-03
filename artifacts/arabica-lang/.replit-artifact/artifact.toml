@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "عربيكا - لغة البرمجة العربية"
+title = "صِفر — لغة برمجة عربية"
 version = "1.0.0"
 id = "artifacts/arabica-lang"
 router = "path"

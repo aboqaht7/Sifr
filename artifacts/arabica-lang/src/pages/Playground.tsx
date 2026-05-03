@@ -4,7 +4,7 @@ import OutputConsole from '../components/OutputConsole';
 import ExamplesPanel from '../components/ExamplesPanel';
 import { Interpreter, OutputLine } from '../lang/interpreter';
 
-const DEFAULT_CODE = `// 🌙 أهلاً بك في عربيكا — لغة برمجة عربية أصيلة بتصميم فريد
+const DEFAULT_CODE = `// 🌙 مرحباً بك في صِفر — لغة البرمجة العربية الأصيلة
 // كنز = متغير،  سرّ = ثابت،  مهمّة = دالة،  أرني = أظهر مخرجات
 // كل كتلة تبدأ بـ ( : ) وتنتهي بـ ( انتهى )
 
@@ -171,48 +171,58 @@ export default function Playground() {
     <div className="playground">
       <header className="header">
         <div className="header-brand">
-          <span className="header-logo">ع</span>
+          <span className="header-logo">Σ</span>
           <div className="header-text">
-            <h1>عربيكا</h1>
-            <p>لغة برمجة عربية أصيلة</p>
+            <h1>صِفر</h1>
+            <p>منصّة البرمجة العربية للمؤسّسات</p>
           </div>
         </div>
         <div className="header-actions">
+          <a
+            className="btn-vscode"
+            href="https://github.com/sifr-lang/sifr/tree/main/vscode-sifr"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="إضافة Sifr للـ VSCode"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.86 2.66a1.5 1.5 0 0 1 1.04.36l3.4 2.83c.7.59.7 1.69 0 2.29l-3.4 2.83c-.4.34-.95.43-1.45.21l-7.7-3.32-5.5 4.16 5.5 4.15 7.7-3.32c.5-.21 1.05-.13 1.45.21l3.4 2.83c.7.6.7 1.7 0 2.3l-3.4 2.82c-.7.59-1.79.42-2.27-.36L8.5 14.5l-3.5 2.65a1.5 1.5 0 0 1-2.21-.4L1.4 14.6a1.5 1.5 0 0 1 .25-1.97L4.83 10 1.65 7.37A1.5 1.5 0 0 1 1.4 5.4l1.39-2.15a1.5 1.5 0 0 1 2.21-.4L8.5 5.5l8.13-2.5c.36-.16.7-.27 1.23-.34z"/></svg>
+            VSCode
+          </a>
           <button
             className={`btn-ghost ${showExamples ? 'active' : ''}`}
             onClick={() => setShowExamples(v => !v)}
           >
-            📚 أمثلة
+            أمثلة
           </button>
           <button
             className={`btn-ghost ${showDocs ? 'active' : ''}`}
             onClick={() => setShowDocs(v => !v)}
           >
-            📖 توثيق
+            توثيق
           </button>
           <button
             className={`btn-ghost ${showCanvas ? 'active' : ''}`}
             onClick={() => setShowCanvas(v => !v)}
           >
-            🎨 لوحة
+            لوحة
           </button>
           <button
             className={`btn-ghost ${showRepl ? 'active' : ''}`}
             onClick={() => setShowRepl(v => !v)}
             title="جلسة تفاعلية فورية"
           >
-            ⌨ تفاعلي
+            تفاعلي
           </button>
           <button className="btn-ghost" onClick={share} title="انسخ رابطاً يحتوي على كودك">
-            📤 شارك
+            شارك
           </button>
-          <button className="btn-ghost" onClick={clear}>🗑 مسح</button>
+          <button className="btn-ghost" onClick={clear}>مسح</button>
           <button
             className={`btn-run ${isRunning ? 'running' : ''}`}
             onClick={run}
             disabled={isRunning}
           >
-            {isRunning ? '⏳ جارٍ التنفيذ...' : '▶ تشغيل'}
+            {isRunning ? 'جارٍ التنفيذ…' : '▶  تشغيل'}
           </button>
         </div>
         {shareToast && <div className="share-toast">{shareToast}</div>}
@@ -305,12 +315,12 @@ export default function Playground() {
 function DocsPanel() {
   return (
     <div className="docs-panel">
-      <h3>توثيق عربيكا</h3>
+      <h3>توثيق صِفر</h3>
 
       <section>
         <h4>الكلمات المفتاحية الأصيلة</h4>
         <p style={{ fontSize: '0.85em', opacity: 0.8 }}>
-          عربيكا لغة جديدة بصياغة فريدة — ليست ترجمة من أي لغة.
+          صِفر لغة جديدة بصياغة فريدة — ليست ترجمة من أي لغة.
         </p>
       </section>
 
@@ -474,6 +484,17 @@ function DocsPanel() {
       <section>
         <h4>الذكاء الاصطناعي 🧠</h4>
         <code>{`شبكة_عصبية([2، 8، 1]، ["ريلو"، "سيغمويد"])\nدرّب(نموذج، بيانات، 1000)\nتنبأ(نموذج، [1، 0])\nاحفظ_نموذج / حمّل_نموذج`}</code>
+        <p style={{ fontSize: '0.8em', opacity: 0.8 }}>
+          جرّب مثال «🧠 كود عبدالله» في لوحة الأمثلة — مصنّف صحي كامل مدرَّب وجاهز للاستخدام.
+        </p>
+      </section>
+
+      <section>
+        <h4>VSCode Extension 💻</h4>
+        <p style={{ fontSize: '0.85em', opacity: 0.85 }}>
+          إضافة رسمية لـ VSCode تدعم تلوين الكلمات المفتاحية والدوال المدمجة، مع إغلاق تلقائي للأقواس وإمتدادات <code>.sifr</code> و <code>.صفر</code>.
+        </p>
+        <code>{`// التثبيت:\n// انسخ مجلد vscode-sifr إلى:\n// ~/.vscode/extensions/sifr-lang-1.0.0\n// ثم أعد تشغيل VSCode`}</code>
       </section>
 
       <section>

@@ -1,0 +1,104 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Sifr",
+  "scopeName": "source.sifr",
+  "fileTypes": ["sifr", "صفر", "arb"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#keywords" },
+    { "include": "#constants" },
+    { "include": "#types" },
+    { "include": "#builtins" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        { "name": "comment.line.double-slash.sifr", "match": "//.*$" },
+        { "name": "comment.block.sifr", "begin": "/\\*", "end": "\\*/" }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.sifr",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [{ "name": "constant.character.escape.sifr", "match": "\\\\." }]
+        },
+        {
+          "name": "string.quoted.single.sifr",
+          "begin": "'",
+          "end": "'",
+          "patterns": [{ "name": "constant.character.escape.sifr", "match": "\\\\." }]
+        },
+        {
+          "name": "string.template.sifr",
+          "begin": "`",
+          "end": "`",
+          "patterns": [
+            {
+              "name": "meta.embedded.expression.sifr",
+              "begin": "\\{",
+              "end": "\\}",
+              "patterns": [{ "include": "$self" }]
+            },
+            { "name": "constant.character.escape.sifr", "match": "\\\\." }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        { "name": "constant.numeric.sifr", "match": "\\b\\d+(\\.\\d+)?\\b" }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.sifr",
+          "match": "(?<![\\u0600-\\u06FF_\\w])(إن|وإلا|كرر|جوال|في|من|إلى|بخطوة|أعد|توقف|تابع|طابق|حال|حاول|التقط|أخيراً|خطأ|انتهى)(?![\\u0600-\\u06FF_\\w])"
+        },
+        {
+          "name": "keyword.declaration.sifr",
+          "match": "(?<![\\u0600-\\u06FF_\\w])(كنز|سرّ|مهمّة|بنية|وارث|يرث|وحدة|صدّر|استورد|اختبر)(?![\\u0600-\\u06FF_\\w])"
+        },
+        {
+          "name": "keyword.other.sifr",
+          "match": "(?<![\\u0600-\\u06FF_\\w])(هذا|إضافة|حذف)(?![\\u0600-\\u06FF_\\w])"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.sifr",
+          "match": "(?<![\\u0600-\\u06FF_\\w])(صدق|كذب|عدم)(?![\\u0600-\\u06FF_\\w])"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.sifr",
+          "match": "(?<=:\\s*)(رقم|نص|منطقي|قائمة|كائن|دالة|عدم|أي)(?![\\u0600-\\u06FF_\\w])"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "support.function.sifr",
+          "match": "(?<![\\u0600-\\u06FF_\\w])(أرني|نص|عدد|جذر|مطلق|دور|سقف|أرض|أقصى|أدنى|عشوائي|خريطة|تصفية|اختزال|فرز|عكس|شريحة|طول|الآن|سنة|شهر|يوم|جلب|احفظ_ملف|احفظ|حمّل|إلى_جسون|من_جسون|نمط|توقّع|توقّع_صدق|شغّل_اختبارات|شبكة_عصبية|درّب|تنبأ|احفظ_نموذج|حمّل_نموذج|قاموس|قاموس_ضع|قاموس_جلب|قاموس_مفاتيح|مجموعة|طابور|مكدس|كومة|قائمة_مرتبطة|شجرة_بحث|تيار|تيار_من_نطاق|ترتيب_سريع|ترتيب_دمج|بحث_ثنائي|مسافة_تحرير|بحث_عمق|بحث_عرض|أقصر_مسار|عدد_كبير|كب_جمع|كب_ضرب|كب_أس|كب_مضروب|كب_إلى_نص|لوحة|زر|حقل|عنوان|فقرة|حاوية|أضف|أنماط|استمع|غيّر_نص)(?![\\u0600-\\u06FF_\\w])"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        { "name": "keyword.operator.sifr", "match": "(==|!=|<=|>=|&&|\\|\\||\\+|\\-|\\*|\\/|%|<|>|=|!|\\?)" }
+      ]
+    }
+  }
+}
