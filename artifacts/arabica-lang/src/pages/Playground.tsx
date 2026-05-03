@@ -264,10 +264,22 @@ export default function Playground() {
         {showCanvas && (
           <div className="canvas-pane">
             <div className="pane-header">
-              <span className="pane-title">🎨 لوحة المعاينة</span>
+              <span className="pane-title">🌐 المتصفّح</span>
               <button className="btn-tiny" onClick={() => { if (canvasRef.current) canvasRef.current.innerHTML = ''; }}>
                 مسح
               </button>
+            </div>
+            <div className="browser-chrome">
+              <div className="browser-dots">
+                <span className="browser-dot browser-dot-red" />
+                <span className="browser-dot browser-dot-yellow" />
+                <span className="browser-dot browser-dot-green" />
+              </div>
+              <div className="browser-url-bar">
+                <span className="browser-url-icon">🔒</span>
+                <span className="browser-url-text">موقعي.صفر</span>
+              </div>
+              <div style={{ width: 52 }} />
             </div>
             <div ref={canvasRef} className="canvas-surface" dir="rtl" />
           </div>
