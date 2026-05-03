@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "عربيكا - لغة البرمجة العربية"
+version = "1.0.0"
+id = "artifacts/arabica-lang"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22775
+
+[services.development]
+run = "pnpm --filter @workspace/arabica-lang run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/arabica-lang", "run", "build" ]
+publicDir = "artifacts/arabica-lang/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22775"
+BASE_PATH = "/"

@@ -1,0 +1,131 @@
+import { useRef, useCallback } from 'react';
+
+interface CodeEditorProps {
+  value: string;
+  onChange: (val: string) => void;
+  onRun: () => void;
+}
+
+const KEYWORDS = ['عرّف', 'عرف', 'ثابت', 'دالة', 'إذا', 'اذا', 'وإلا', 'والا', 'طالما', 'لكل', 'من', 'حتى', 'أعِد', 'اعد', 'ارجع', 'وقف', 'تابع', 'بخطوة'];
+const BUILTINS = ['اطبع', 'طباعة', 'شبكة_عصبية', 'درّب', 'تنبأ', 'خسارة', 'دقة', 'جذر', 'مطلق', 'قوة', 'دور', 'سقف', 'أرضية', 'عشوائي', 'عشوائي_صحيح', 'أقصى', 'أدنى', 'مجموع', 'متوسط', 'طول', 'نوع', 'رقم', 'نص', 'إضافة', 'حذف', 'فرز', 'عكس', 'دمج', 'شريحة', 'انضم', 'نطاق', 'مصفوفة', 'مفاتيح', 'قيم', 'تقسيم', 'استبدال', 'تقليم', 'يحتوي', 'تكرار', 'خريطة', 'تصفية', 'اختزال', 'وقت', 'مسح', 'خاصية_الضرب_النقطي', 'تطبيع', 'دالة_سيغمويد', 'دالة_ريلو'];
+const BOOLEANS = ['صحيح', 'خطأ', 'خطا', 'نعم', 'لا', 'فارغ', 'لا_شيء'];
+
+function highlight(code: string): string {
+  const lines = code.split('\n');
+  return lines.map(line => {
+    // Escape HTML
+    let result = '';
+    let i = 0;
+    const chars = [...line];
+
+    // Simple token-based highlighting
+    while (i < chars.length) {
+      // Comment
+      if (chars[i] === '/' && chars[i + 1] === '/') {
+        const comment = chars.slice(i).join('');
+        result += `<span class="hl-comment">${escHtml(comment)}</span>`;
+        break;
+      }
+      // String
+      if (chars[i] === '"' || chars[i] === "'") {
+        const q = chars[i];
+        let str = q;
+        i++;
+        while (i < chars.length && chars[i] !== q) { str += chars[i]; i++; }
+        str += q;
+        i++;
+        result += `<span class="hl-string">${escHtml(str)}</span>`;
+        continue;
+      }
+      // Number
+      if (/[0-9٠-٩]/.test(chars[i])) {
+        let num = '';
+        while (i < chars.length && /[0-9٠-٩.]/.test(chars[i])) { num += chars[i]; i++; }
+        result += `<span class="hl-number">${escHtml(num)}</span>`;
+        continue;
+      }
+      // Identifier / keyword
+      if (isIdentChar(chars[i])) {
+        let word = '';
+        while (i < chars.length && isIdentChar(chars[i])) { word += chars[i]; i++; }
+        if (KEYWORDS.includes(word)) result += `<span class="hl-keyword">${escHtml(word)}</span>`;
+        else if (BUILTINS.includes(word)) result += `<span class="hl-builtin">${escHtml(word)}</span>`;
+        else if (BOOLEANS.includes(word)) result += `<span class="hl-boolean">${escHtml(word)}</span>`;
+        else result += `<span class="hl-ident">${escHtml(word)}</span>`;
+        continue;
+      }
+      result += escHtml(chars[i]);
+      i++;
+    }
+    return result;
+  }).join('\n');
+}
+
+function isIdentChar(ch: string): boolean {
+  const code = ch.charCodeAt(0);
+  return (code >= 0x0600 && code <= 0x06FF) ||
+    (code >= 0x0750 && code <= 0x077F) ||
+    (code >= 0x064B && code <= 0x065F) ||
+    /[a-zA-Z0-9_]/.test(ch);
+}
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+export default function CodeEditor({ value, onChange, onRun }: CodeEditorProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Tab → insert spaces
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const el = e.currentTarget;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const next = value.substring(0, start) + '    ' + value.substring(end);
+      onChange(next);
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = start + 4;
+      });
+    }
+    // Ctrl/Cmd + Enter → run
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      onRun();
+    }
+  }, [value, onChange, onRun]);
+
+  const highlighted = highlight(value);
+  const lines = value.split('\n');
+
+  return (
+    <div className="editor-wrap">
+      <div className="line-numbers" aria-hidden="true">
+        {lines.map((_, i) => (
+          <div key={i} className="line-num">{i + 1}</div>
+        ))}
+      </div>
+      <div className="editor-inner">
+        <pre
+          className="highlight-layer"
+          aria-hidden="true"
+          dangerouslySetInnerHTML={{ __html: highlighted + '\n' }}
+        />
+        <textarea
+          ref={textareaRef}
+          className="code-textarea"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          spellCheck={false}
+          autoCorrect="off"
+          autoCapitalize="off"
+          dir="rtl"
+          lang="ar"
+          placeholder="// اكتب كودك هنا..."
+        />
+      </div>
+    </div>
+  );
+}
