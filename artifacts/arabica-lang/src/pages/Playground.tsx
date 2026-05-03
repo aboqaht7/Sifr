@@ -74,6 +74,7 @@ export default function Playground() {
   const [showDocs, setShowDocs] = useState(false);
   const [showCanvas, setShowCanvas] = useState(false);
   const [showRepl, setShowRepl] = useState(false);
+  const [previewWidth, setPreviewWidth] = useState<'full' | 'tablet' | 'mobile'>('full');
   const [replInput, setReplInput] = useState('');
   const [replHistory, setReplHistory] = useState<{ kind: 'in' | OutputLine['kind']; text: string }[]>([]);
   const [replPast, setReplPast] = useState<string[]>([]);
@@ -104,6 +105,29 @@ export default function Playground() {
       }
     }, 0);
   }, [code, showCanvas]);
+
+  const exportHTML = useCallback(() => {
+    if (!canvasRef.current) return;
+    const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>موقعي — صُنع بصِفر</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>* { box-sizing: border-box; } body { margin: 0; font-family: 'Noto Naskh Arabic', sans-serif; direction: rtl; }</style>
+</head>
+<body>
+${canvasRef.current.innerHTML}
+</body>
+</html>`;
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'موقعي-صفر.html'; a.click();
+    URL.revokeObjectURL(url);
+  }, []);
 
   const clear = useCallback(() => {
     setCode('');
@@ -265,6 +289,26 @@ export default function Playground() {
           <div className="canvas-pane">
             <div className="pane-header">
               <span className="pane-title">🌐 المتصفّح</span>
+              <div className="canvas-view-btns">
+                <button
+                  className={`canvas-view-btn ${previewWidth === 'mobile' ? 'active' : ''}`}
+                  onClick={() => setPreviewWidth('mobile')}
+                  title="عرض الجوّال (375px)"
+                >📱</button>
+                <button
+                  className={`canvas-view-btn ${previewWidth === 'tablet' ? 'active' : ''}`}
+                  onClick={() => setPreviewWidth('tablet')}
+                  title="عرض اللوح (768px)"
+                >💻</button>
+                <button
+                  className={`canvas-view-btn ${previewWidth === 'full' ? 'active' : ''}`}
+                  onClick={() => setPreviewWidth('full')}
+                  title="عرض سطح المكتب (كامل)"
+                >🖥</button>
+              </div>
+              <button className="btn-tiny btn-export" onClick={exportHTML} title="حمّل الموقع كملف HTML">
+                ⬇ HTML
+              </button>
               <button className="btn-tiny" onClick={() => { if (canvasRef.current) canvasRef.current.innerHTML = ''; }}>
                 مسح
               </button>
@@ -281,7 +325,9 @@ export default function Playground() {
               </div>
               <div style={{ width: 52 }} />
             </div>
-            <div ref={canvasRef} className="canvas-surface" dir="rtl" />
+            <div className={`canvas-viewport canvas-viewport-${previewWidth}`}>
+              <div ref={canvasRef} className="canvas-surface" dir="rtl" />
+            </div>
           </div>
         )}
 

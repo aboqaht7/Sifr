@@ -609,6 +609,27 @@ export class Interpreter {
         'سماكة': 'fontWeight', 'محاذاة': 'textAlign', 'حشو': 'padding', 'هامش': 'margin',
         'حدود': 'border', 'دائرية': 'borderRadius', 'عرض': 'width', 'ارتفاع': 'height',
         'ظل': 'boxShadow', 'شفافية': 'opacity',
+        'عرض_أقصى': 'maxWidth', 'ارتفاع_أقصى': 'maxHeight',
+        'عرض_أدنى': 'minWidth', 'ارتفاع_أدنى': 'minHeight',
+        'انتقال': 'transition', 'تحريك': 'animation', 'تحويل': 'transform',
+        'مكان': 'position', 'يمين': 'right', 'يسار': 'left',
+        'أعلى': 'top', 'أسفل': 'bottom', 'ترتيب_z': 'zIndex',
+        'تدفق': 'overflow', 'مؤشر': 'cursor', 'اتجاه': 'direction',
+        'فجوة': 'gap', 'لف': 'flexWrap', 'مرن': 'flex',
+        'عمود_شبكة': 'gridTemplateColumns', 'صف_شبكة': 'gridTemplateRows',
+        'توسيط': 'justifyContent', 'توسيط_أيقونة': 'alignItems',
+        'نوع_عرض': 'display', 'زخرفة': 'textDecoration',
+        'تباعد': 'letterSpacing', 'ارتفاع_سطر': 'lineHeight',
+        'حجم_صندوق': 'boxSizing', 'تعويم': 'float', 'ظل_نص': 'textShadow',
+        'هامش_أعلى': 'marginTop', 'هامش_أسفل': 'marginBottom',
+        'هامش_يمين': 'marginRight', 'هامش_يسار': 'marginLeft',
+        'حشو_أعلى': 'paddingTop', 'حشو_أسفل': 'paddingBottom',
+        'حشو_يمين': 'paddingRight', 'حشو_يسار': 'paddingLeft',
+        'حدود_يمين': 'borderRight', 'حدود_يسار': 'borderLeft',
+        'حدود_أعلى': 'borderTop', 'حدود_أسفل': 'borderBottom',
+        'نمط_قائمة': 'listStyle', 'بروز': 'zIndex', 'حجم_عمود': 'columnGap',
+        'تنسيق_خط': 'fontStyle', 'كبّر': 'textTransform', 'فائض': 'overflow',
+        'مزج': 'mixBlendMode', 'تصفية_css': 'filter', 'مؤشر_ماوس': 'cursor',
       };
       for (const [k, v] of Object.entries(styles ?? {})) {
         const cssKey = cssMap[k] ?? k;
@@ -620,7 +641,9 @@ export class Interpreter {
       if (!isEl(el)) throw new ArabicError('ليس عنصراً');
       const map: Record<string, string> = {
         'نقر': 'click', 'مرور': 'mouseover', 'إدخال': 'input', 'تغيير': 'change',
-        'مفتاح': 'keydown', 'تركيز': 'focus',
+        'مفتاح': 'keydown', 'تركيز': 'focus', 'خروج': 'mouseleave',
+        'ضغط': 'mousedown', 'رفع': 'mouseup', 'حرف': 'keyup',
+        'إرسال': 'submit', 'تمرير': 'scroll', 'تحميل': 'load',
       };
       const ev = map[event] ?? event;
       el.addEventListener(ev, () => {
@@ -633,6 +656,216 @@ export class Interpreter {
       if (!isEl(el)) throw new ArabicError('ليس عنصراً');
       el.textContent = self.arabicStr(text);
       return el;
+    }});
+
+    // ==================== Extended DOM API (Web Builder) ====================
+    g.define('رابط', { __b: true, fn: (text: string, href = '#', onClick?: ArabicFunction) => {
+      const a = document.createElement('a');
+      a.textContent = self.arabicStr(text);
+      a.href = String(href);
+      a.style.cssText = 'color:#2563eb;text-decoration:none;cursor:pointer;';
+      if (onClick instanceof ArabicFunction) {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          try { self.callFunction(onClick, []); }
+          catch (err) { self.emitEventError(err, 'الرابط'); }
+        });
+      }
+      return a;
+    }});
+    g.define('بند', { __b: true, fn: (...children: unknown[]) => {
+      const li = document.createElement('li');
+      for (const c of children) {
+        if (isEl(c)) li.appendChild(c);
+        else { const t = document.createElement('span'); t.textContent = self.arabicStr(c); li.appendChild(t); }
+      }
+      return li;
+    }});
+    g.define('قائمة_ب', { __b: true, fn: (...items: unknown[]) => {
+      const ul = document.createElement('ul');
+      ul.style.cssText = 'padding-right:20px;margin:8px 0;list-style:disc;';
+      for (const item of items) {
+        const li = document.createElement('li');
+        li.style.cssText = 'margin:4px 0;';
+        if (isEl(item)) li.appendChild(item);
+        else li.textContent = self.arabicStr(item);
+        ul.appendChild(li);
+      }
+      return ul;
+    }});
+    g.define('قائمة_ر', { __b: true, fn: (...items: unknown[]) => {
+      const ol = document.createElement('ol');
+      ol.style.cssText = 'padding-right:24px;margin:8px 0;list-style:decimal;';
+      for (const item of items) {
+        const li = document.createElement('li');
+        li.style.cssText = 'margin:4px 0;';
+        if (isEl(item)) li.appendChild(item);
+        else li.textContent = self.arabicStr(item);
+        ol.appendChild(li);
+      }
+      return ol;
+    }});
+    g.define('شبكة', { __b: true, fn: (cols: number | string, ...children: unknown[]) => {
+      const div = document.createElement('div');
+      const colsVal = typeof cols === 'number'
+        ? `repeat(${Math.round(Number(cols))}, 1fr)` : String(cols);
+      div.style.cssText = `display:grid;grid-template-columns:${colsVal};gap:16px;padding:12px;`;
+      for (const c of children) {
+        if (isEl(c)) div.appendChild(c);
+        else { const t = document.createElement('div'); t.textContent = self.arabicStr(c); div.appendChild(t); }
+      }
+      return div;
+    }});
+    g.define('مربع_نص', { __b: true, fn: (placeholder = '', onInput?: ArabicFunction) => {
+      const ta = document.createElement('textarea');
+      ta.placeholder = String(placeholder);
+      ta.style.cssText = 'padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-family:inherit;font-size:14px;resize:vertical;min-height:80px;width:100%;box-sizing:border-box;outline:none;';
+      if (onInput instanceof ArabicFunction) {
+        ta.addEventListener('input', () => {
+          try { self.callFunction(onInput, [ta.value]); }
+          catch (e) { self.emitEventError(e, 'مربع_نص'); }
+        });
+      }
+      return ta;
+    }});
+    g.define('منتقي', { __b: true, fn: (options: unknown[], onChange?: ArabicFunction) => {
+      const sel = document.createElement('select');
+      sel.style.cssText = 'padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-family:inherit;font-size:14px;background:#fff;cursor:pointer;';
+      for (const opt of (Array.isArray(options) ? options : [])) {
+        const o = document.createElement('option');
+        o.value = o.textContent = self.arabicStr(opt);
+        sel.appendChild(o);
+      }
+      if (onChange instanceof ArabicFunction) {
+        sel.addEventListener('change', () => {
+          try { self.callFunction(onChange, [sel.value]); }
+          catch (e) { self.emitEventError(e, 'منتقي'); }
+        });
+      }
+      return sel;
+    }});
+    g.define('فاصل', { __b: true, fn: () => {
+      const hr = document.createElement('hr');
+      hr.style.cssText = 'border:none;border-top:1px solid #e2e8f0;margin:16px 0;';
+      return hr;
+    }});
+    g.define('بطاقة', { __b: true, fn: (...children: unknown[]) => {
+      const div = document.createElement('div');
+      div.style.cssText = 'background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,0.08);border:1px solid #f1f5f9;';
+      for (const c of children) {
+        if (isEl(c)) div.appendChild(c);
+        else { const t = document.createElement('p'); t.textContent = self.arabicStr(c); div.appendChild(t); }
+      }
+      return div;
+    }});
+    g.define('بادج', { __b: true, fn: (text: string, color = '#2563eb') => {
+      const span = document.createElement('span');
+      span.textContent = self.arabicStr(text);
+      const c = String(color);
+      span.style.cssText = `display:inline-block;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600;background:${c}22;color:${c};`;
+      return span;
+    }});
+    g.define('مؤشر_تقدم', { __b: true, fn: (value: number, max = 100, color = '#2563eb') => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'background:#e2e8f0;border-radius:20px;overflow:hidden;height:10px;';
+      const bar = document.createElement('div');
+      const pct = Math.min(100, Math.max(0, (Number(value) / Number(max)) * 100));
+      bar.style.cssText = `width:${pct}%;height:100%;background:${String(color)};border-radius:20px;transition:width 0.4s;`;
+      wrap.appendChild(bar);
+      return wrap;
+    }});
+    g.define('تنبيه', { __b: true, fn: (text: string, نوع = 'معلومة') => {
+      const map: Record<string,string> = {
+        'نجاح': '#10b981', 'خطأ': '#ef4444', 'تحذير': '#f59e0b', 'معلومة': '#2563eb'
+      };
+      const color = map[String(نوع)] ?? '#2563eb';
+      const div = document.createElement('div');
+      div.textContent = self.arabicStr(text);
+      div.style.cssText = `padding:12px 16px;border-radius:8px;border-right:4px solid ${color};background:${color}11;color:#1e293b;font-size:14px;`;
+      return div;
+    }});
+    g.define('أنماط_صفحة', { __b: true, fn: (css: string) => {
+      if (typeof document === 'undefined') return null;
+      const style = document.createElement('style');
+      style.textContent = String(css);
+      ensureCanvas().appendChild(style);
+      return null;
+    }});
+    g.define('بعد', { __b: true, fn: (ms: number, fn: ArabicFunction) => {
+      if (!(fn instanceof ArabicFunction)) throw new ArabicError("'بعد' يحتاج دالة");
+      return setTimeout(() => { try { self.callFunction(fn, []); } catch (_) {} }, Math.max(0, Number(ms)));
+    }});
+    g.define('كل_مدة', { __b: true, fn: (ms: number, fn: ArabicFunction) => {
+      if (!(fn instanceof ArabicFunction)) throw new ArabicError("'كل_مدة' يحتاج دالة");
+      return setInterval(() => { try { self.callFunction(fn, []); } catch (_) {} }, Math.max(1, Number(ms)));
+    }});
+    g.define('ألغ_مؤقت', { __b: true, fn: (id: unknown) => {
+      clearTimeout(Number(id)); clearInterval(Number(id)); return null;
+    }});
+    g.define('احصل_على', { __b: true, fn: (selector: string, parent?: unknown) => {
+      const p = isEl(parent as HTMLElement) ? (parent as HTMLElement) : ensureCanvas();
+      return p.querySelector(String(selector)) ?? null;
+    }});
+    g.define('احصل_على_كل', { __b: true, fn: (selector: string, parent?: unknown) => {
+      const p = isEl(parent as HTMLElement) ? (parent as HTMLElement) : ensureCanvas();
+      return Array.from(p.querySelectorAll(String(selector)));
+    }});
+    g.define('احذف_عنصر', { __b: true, fn: (el: unknown) => {
+      const e = el as HTMLElement;
+      if (isEl(e) && e.parentNode) e.parentNode.removeChild(e);
+      return null;
+    }});
+    g.define('انزلق_لـ', { __b: true, fn: (el: unknown) => {
+      if (isEl(el as HTMLElement))
+        (el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return null;
+    }});
+    g.define('غيّر_خاصية', { __b: true, fn: (el: unknown, prop: string, val: unknown) => {
+      if (!isEl(el as HTMLElement)) throw new ArabicError('ليس عنصراً');
+      (el as unknown as Record<string, unknown>)[String(prop)] = val;
+      return el;
+    }});
+    g.define('اقرأ_قيمة', { __b: true, fn: (el: unknown) => {
+      if (!isEl(el as HTMLElement)) throw new ArabicError('ليس عنصراً');
+      return (el as HTMLInputElement).value ?? '';
+    }});
+    g.define('اقرأ_محدد', { __b: true, fn: (el: unknown) => {
+      if (!isEl(el as HTMLElement)) throw new ArabicError('ليس عنصراً');
+      return (el as HTMLInputElement).checked;
+    }});
+    g.define('غيّر_قيمة', { __b: true, fn: (el: unknown, val: unknown) => {
+      if (!isEl(el as HTMLElement)) throw new ArabicError('ليس عنصراً');
+      (el as HTMLInputElement).value = String(val);
+      return el;
+    }});
+    g.define('فرّغ', { __b: true, fn: (el: unknown) => {
+      if (!isEl(el as HTMLElement)) throw new ArabicError('ليس عنصراً');
+      (el as HTMLElement).innerHTML = '';
+      return el;
+    }});
+    g.define('عيّن_صنف', { __b: true, fn: (el: unknown, cls: string) => {
+      if (!isEl(el as HTMLElement)) throw new ArabicError('ليس عنصراً');
+      (el as HTMLElement).className = String(cls);
+      return el;
+    }});
+    g.define('أضف_صنف', { __b: true, fn: (el: unknown, cls: string) => {
+      if (!isEl(el as HTMLElement)) throw new ArabicError('ليس عنصراً');
+      (el as HTMLElement).classList.add(String(cls));
+      return el;
+    }});
+    g.define('احذف_صنف', { __b: true, fn: (el: unknown, cls: string) => {
+      if (!isEl(el as HTMLElement)) throw new ArabicError('ليس عنصراً');
+      (el as HTMLElement).classList.remove(String(cls));
+      return el;
+    }});
+    g.define('تبديل_صنف', { __b: true, fn: (el: unknown, cls: string) => {
+      if (!isEl(el as HTMLElement)) throw new ArabicError('ليس عنصراً');
+      (el as HTMLElement).classList.toggle(String(cls));
+      return el;
+    }});
+    g.define('لوحة_من', { __b: true, fn: (parent: unknown) => {
+      if (!isEl(parent as HTMLElement)) throw new ArabicError('ليس عنصراً');
+      return parent;
     }});
 
     // ==================== Test framework ====================
