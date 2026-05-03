@@ -124,6 +124,25 @@ export class Interpreter {
     if (Array.isArray(v)) return '[' + v.map((x) => this.arabicStr(x)).join('، ') + ']';
     if (typeof v === 'object' && v !== null) {
       const obj = v as Record<string, unknown>;
+      // Collection wrappers (Tier 7)
+      const colKind = obj.__col__ as string | undefined;
+      if (colKind) {
+        if (obj._map instanceof Map) {
+          const items = Array.from(obj._map as Map<unknown, unknown>).map(([k, val]) => `${this.arabicStr(k)} → ${this.arabicStr(val)}`);
+          return `${colKind}{${items.join('، ')}}`;
+        }
+        if (obj._set instanceof Set) {
+          const items = Array.from(obj._set as Set<unknown>).map(x => this.arabicStr(x));
+          return `${colKind}{${items.join('، ')}}`;
+        }
+        if (Array.isArray(obj._arr)) {
+          const items = (obj._arr as unknown[]).map(x => this.arabicStr(x));
+          return `${colKind}[${items.join('، ')}]`;
+        }
+        if (typeof obj._big === 'bigint') return `${(obj._big as bigint).toString()}ك`;
+        if (Array.isArray(obj._ops)) return `تيار[…]`;
+        return `${colKind}{…}`;
+      }
       const structName = obj.__struct__ as string | undefined;
       const entries = Object.entries(obj)
         .filter(([k]) => k !== '__struct__')
@@ -1083,6 +1102,510 @@ export class Interpreter {
     g.define('ميل_إلى_كم', { __b: true, fn: (mi: number) => mi / 0.621371 });
     g.define('كغ_إلى_رطل', { __b: true, fn: (kg: number) => kg * 2.20462 });
     g.define('رطل_إلى_كغ', { __b: true, fn: (lb: number) => lb / 2.20462 });
+
+    // ═══════════════════════════════════════════════════════════════
+    // MEGA STDLIB — Tier 7: Java-Class Platform
+    // Collections, Streams, Algorithms, BigInt
+    // ═══════════════════════════════════════════════════════════════
+
+    type Col = Record<string, unknown> & { __col__: string };
+    const isCol = (v: unknown, k?: string): v is Col =>
+      typeof v === 'object' && v !== null && (v as Col).__col__ !== undefined && (k === undefined || (v as Col).__col__ === k);
+    const requireCol = (v: unknown, k: string, fnName: string): Col => {
+      if (!isCol(v, k)) throw new ArabicError(`'${fnName}' يتطلّب ${k}`);
+      return v as Col;
+    };
+    const keyOf = (v: unknown): string => self.arabicStr(v);
+
+    // ── قاموس (HashMap) ─────────────────────────────────────────────
+    g.define('قاموس', { __b: true, fn: (entries?: unknown[]) => {
+      const m = new Map<string, unknown>();
+      if (Array.isArray(entries)) {
+        for (const e of entries) {
+          if (Array.isArray(e) && e.length >= 2) m.set(keyOf(e[0]), e[1]);
+        }
+      }
+      return { __col__: 'قاموس', _map: m };
+    }});
+    g.define('قاموس_ضع', { __b: true, fn: (c: unknown, k: unknown, v: unknown) => {
+      const col = requireCol(c, 'قاموس', 'قاموس_ضع');
+      (col._map as Map<string, unknown>).set(keyOf(k), v);
+      return c;
+    }});
+    g.define('قاموس_جلب', { __b: true, fn: (c: unknown, k: unknown, dflt: unknown = null) => {
+      const col = requireCol(c, 'قاموس', 'قاموس_جلب');
+      const m = col._map as Map<string, unknown>;
+      const sk = keyOf(k);
+      return m.has(sk) ? m.get(sk) : dflt;
+    }});
+    g.define('قاموس_له', { __b: true, fn: (c: unknown, k: unknown) => {
+      const col = requireCol(c, 'قاموس', 'قاموس_له');
+      return (col._map as Map<string, unknown>).has(keyOf(k));
+    }});
+    g.define('قاموس_احذف', { __b: true, fn: (c: unknown, k: unknown) => {
+      const col = requireCol(c, 'قاموس', 'قاموس_احذف');
+      return (col._map as Map<string, unknown>).delete(keyOf(k));
+    }});
+    g.define('قاموس_حجم', { __b: true, fn: (c: unknown) => (requireCol(c, 'قاموس', 'قاموس_حجم')._map as Map<unknown, unknown>).size });
+    g.define('قاموس_مفاتيح', { __b: true, fn: (c: unknown) => Array.from((requireCol(c, 'قاموس', 'قاموس_مفاتيح')._map as Map<string, unknown>).keys()) });
+    g.define('قاموس_قيم', { __b: true, fn: (c: unknown) => Array.from((requireCol(c, 'قاموس', 'قاموس_قيم')._map as Map<string, unknown>).values()) });
+    g.define('قاموس_أزواج', { __b: true, fn: (c: unknown) => Array.from((requireCol(c, 'قاموس', 'قاموس_أزواج')._map as Map<string, unknown>).entries()).map(([k, v]) => [k, v]) });
+    g.define('قاموس_امسح', { __b: true, fn: (c: unknown) => { (requireCol(c, 'قاموس', 'قاموس_امسح')._map as Map<unknown, unknown>).clear(); return c; } });
+    g.define('قاموس_فارغ؟', { __b: true, fn: (c: unknown) => (requireCol(c, 'قاموس', 'قاموس_فارغ؟')._map as Map<unknown, unknown>).size === 0 });
+
+    // ── مجموعة (Set) ────────────────────────────────────────────────
+    g.define('مجموعة', { __b: true, fn: (items?: unknown[]) => {
+      const s = new Set<string>();
+      const orig = new Map<string, unknown>();
+      if (Array.isArray(items)) for (const it of items) { const k = keyOf(it); if (!s.has(k)) { s.add(k); orig.set(k, it); } }
+      return { __col__: 'مجموعة', _set: s, _orig: orig };
+    }});
+    g.define('مجم_أضف', { __b: true, fn: (c: unknown, v: unknown) => {
+      const col = requireCol(c, 'مجموعة', 'مجم_أضف');
+      const k = keyOf(v);
+      (col._set as Set<string>).add(k);
+      (col._orig as Map<string, unknown>).set(k, v);
+      return c;
+    }});
+    g.define('مجم_احذف', { __b: true, fn: (c: unknown, v: unknown) => {
+      const col = requireCol(c, 'مجموعة', 'مجم_احذف');
+      const k = keyOf(v);
+      (col._orig as Map<string, unknown>).delete(k);
+      return (col._set as Set<string>).delete(k);
+    }});
+    g.define('مجم_يحوي', { __b: true, fn: (c: unknown, v: unknown) => (requireCol(c, 'مجموعة', 'مجم_يحوي')._set as Set<string>).has(keyOf(v)) });
+    g.define('مجم_حجم', { __b: true, fn: (c: unknown) => (requireCol(c, 'مجموعة', 'مجم_حجم')._set as Set<unknown>).size });
+    g.define('مجم_إلى_قائمة', { __b: true, fn: (c: unknown) => Array.from((requireCol(c, 'مجموعة', 'مجم_إلى_قائمة')._orig as Map<string, unknown>).values()) });
+    g.define('مجم_اتحاد', { __b: true, fn: (a: unknown, b: unknown) => {
+      const ca = requireCol(a, 'مجموعة', 'مجم_اتحاد'); const cb = requireCol(b, 'مجموعة', 'مجم_اتحاد');
+      const om = new Map(ca._orig as Map<string, unknown>);
+      for (const [k, v] of (cb._orig as Map<string, unknown>)) if (!om.has(k)) om.set(k, v);
+      return { __col__: 'مجموعة', _set: new Set(om.keys()), _orig: om };
+    }});
+    g.define('مجم_تقاطع', { __b: true, fn: (a: unknown, b: unknown) => {
+      const ca = requireCol(a, 'مجموعة', 'مجم_تقاطع'); const cb = requireCol(b, 'مجموعة', 'مجم_تقاطع');
+      const sb = cb._set as Set<string>; const om = new Map<string, unknown>();
+      for (const [k, v] of (ca._orig as Map<string, unknown>)) if (sb.has(k)) om.set(k, v);
+      return { __col__: 'مجموعة', _set: new Set(om.keys()), _orig: om };
+    }});
+    g.define('مجم_فرق', { __b: true, fn: (a: unknown, b: unknown) => {
+      const ca = requireCol(a, 'مجموعة', 'مجم_فرق'); const cb = requireCol(b, 'مجموعة', 'مجم_فرق');
+      const sb = cb._set as Set<string>; const om = new Map<string, unknown>();
+      for (const [k, v] of (ca._orig as Map<string, unknown>)) if (!sb.has(k)) om.set(k, v);
+      return { __col__: 'مجموعة', _set: new Set(om.keys()), _orig: om };
+    }});
+
+    // ── طابور (Queue, FIFO) ─────────────────────────────────────────
+    g.define('طابور', { __b: true, fn: (items?: unknown[]) => ({ __col__: 'طابور', _arr: Array.isArray(items) ? [...items] : [] }) });
+    g.define('طب_ادفع', { __b: true, fn: (q: unknown, v: unknown) => { (requireCol(q, 'طابور', 'طب_ادفع')._arr as unknown[]).push(v); return q; } });
+    g.define('طب_اسحب', { __b: true, fn: (q: unknown) => {
+      const a = requireCol(q, 'طابور', 'طب_اسحب')._arr as unknown[];
+      if (a.length === 0) throw new ArabicError('الطابور فارغ');
+      return a.shift();
+    }});
+    g.define('طب_رأس', { __b: true, fn: (q: unknown) => {
+      const a = requireCol(q, 'طابور', 'طب_رأس')._arr as unknown[];
+      if (a.length === 0) throw new ArabicError('الطابور فارغ');
+      return a[0];
+    }});
+    g.define('طب_حجم', { __b: true, fn: (q: unknown) => (requireCol(q, 'طابور', 'طب_حجم')._arr as unknown[]).length });
+    g.define('طب_فارغ؟', { __b: true, fn: (q: unknown) => (requireCol(q, 'طابور', 'طب_فارغ؟')._arr as unknown[]).length === 0 });
+
+    // ── مكدس (Stack, LIFO) ──────────────────────────────────────────
+    g.define('مكدس', { __b: true, fn: (items?: unknown[]) => ({ __col__: 'مكدس', _arr: Array.isArray(items) ? [...items] : [] }) });
+    g.define('مك_ادفع', { __b: true, fn: (s: unknown, v: unknown) => { (requireCol(s, 'مكدس', 'مك_ادفع')._arr as unknown[]).push(v); return s; } });
+    g.define('مك_اسحب', { __b: true, fn: (s: unknown) => {
+      const a = requireCol(s, 'مكدس', 'مك_اسحب')._arr as unknown[];
+      if (a.length === 0) throw new ArabicError('المكدس فارغ');
+      return a.pop();
+    }});
+    g.define('مك_قمة', { __b: true, fn: (s: unknown) => {
+      const a = requireCol(s, 'مكدس', 'مك_قمة')._arr as unknown[];
+      if (a.length === 0) throw new ArabicError('المكدس فارغ');
+      return a[a.length - 1];
+    }});
+    g.define('مك_حجم', { __b: true, fn: (s: unknown) => (requireCol(s, 'مكدس', 'مك_حجم')._arr as unknown[]).length });
+    g.define('مك_فارغ؟', { __b: true, fn: (s: unknown) => (requireCol(s, 'مكدس', 'مك_فارغ؟')._arr as unknown[]).length === 0 });
+
+    // ── كومة (Min-Heap / PriorityQueue) ─────────────────────────────
+    const heapKey = (h: Col, v: unknown): number => {
+      const fn = h._key as ArabicFunction | null;
+      if (!fn) return Number(v);
+      const k = self.callFunction(fn, [v]);
+      return Number(k);
+    };
+    g.define('كومة', { __b: true, fn: (keyFn?: ArabicFunction) => ({ __col__: 'كومة', _arr: [] as unknown[], _key: keyFn ?? null }) });
+    g.define('كم_ادفع', { __b: true, fn: (h: unknown, v: unknown) => {
+      const col = requireCol(h, 'كومة', 'كم_ادفع');
+      const a = col._arr as unknown[];
+      a.push(v);
+      let i = a.length - 1;
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (heapKey(col, a[i]) < heapKey(col, a[p])) { [a[i], a[p]] = [a[p], a[i]]; i = p; } else break;
+      }
+      return h;
+    }});
+    g.define('كم_اسحب', { __b: true, fn: (h: unknown) => {
+      const col = requireCol(h, 'كومة', 'كم_اسحب');
+      const a = col._arr as unknown[];
+      if (a.length === 0) throw new ArabicError('الكومة فارغة');
+      const top = a[0];
+      const last = a.pop();
+      if (a.length > 0) {
+        a[0] = last;
+        let i = 0; const n = a.length;
+        for (;;) {
+          const l = 2 * i + 1, r = 2 * i + 2; let m = i;
+          if (l < n && heapKey(col, a[l]) < heapKey(col, a[m])) m = l;
+          if (r < n && heapKey(col, a[r]) < heapKey(col, a[m])) m = r;
+          if (m !== i) { [a[i], a[m]] = [a[m], a[i]]; i = m; } else break;
+        }
+      }
+      return top;
+    }});
+    g.define('كم_قمة', { __b: true, fn: (h: unknown) => {
+      const a = requireCol(h, 'كومة', 'كم_قمة')._arr as unknown[];
+      if (a.length === 0) throw new ArabicError('الكومة فارغة');
+      return a[0];
+    }});
+    g.define('كم_حجم', { __b: true, fn: (h: unknown) => (requireCol(h, 'كومة', 'كم_حجم')._arr as unknown[]).length });
+    g.define('كم_فارغ؟', { __b: true, fn: (h: unknown) => (requireCol(h, 'كومة', 'كم_فارغ؟')._arr as unknown[]).length === 0 });
+
+    // ── قائمة_مرتبطة (LinkedList, doubly-linked) ────────────────────
+    type LLNode = { v: unknown; n: LLNode | null; p: LLNode | null };
+    g.define('قائمة_مرتبطة', { __b: true, fn: (items?: unknown[]) => {
+      const list: { __col__: string; _h: LLNode | null; _t: LLNode | null; _len: number } = { __col__: 'قائمة_مرتبطة', _h: null, _t: null, _len: 0 };
+      if (Array.isArray(items)) for (const v of items) {
+        const node: LLNode = { v, n: null, p: list._t };
+        if (list._t) list._t.n = node; else list._h = node;
+        list._t = node; list._len++;
+      }
+      return list;
+    }});
+    g.define('قم_أضف_نهاية', { __b: true, fn: (l: unknown, v: unknown) => {
+      const col = requireCol(l, 'قائمة_مرتبطة', 'قم_أضف_نهاية') as unknown as { _h: LLNode | null; _t: LLNode | null; _len: number };
+      const node: LLNode = { v, n: null, p: col._t };
+      if (col._t) col._t.n = node; else col._h = node;
+      col._t = node; col._len++;
+      return l;
+    }});
+    g.define('قم_أضف_بداية', { __b: true, fn: (l: unknown, v: unknown) => {
+      const col = requireCol(l, 'قائمة_مرتبطة', 'قم_أضف_بداية') as unknown as { _h: LLNode | null; _t: LLNode | null; _len: number };
+      const node: LLNode = { v, n: col._h, p: null };
+      if (col._h) col._h.p = node; else col._t = node;
+      col._h = node; col._len++;
+      return l;
+    }});
+    g.define('قم_احذف_أول', { __b: true, fn: (l: unknown) => {
+      const col = requireCol(l, 'قائمة_مرتبطة', 'قم_احذف_أول') as unknown as { _h: LLNode | null; _t: LLNode | null; _len: number };
+      if (!col._h) throw new ArabicError('القائمة المرتبطة فارغة');
+      const v = col._h.v; col._h = col._h.n;
+      if (col._h) col._h.p = null; else col._t = null;
+      col._len--; return v;
+    }});
+    g.define('قم_احذف_آخر', { __b: true, fn: (l: unknown) => {
+      const col = requireCol(l, 'قائمة_مرتبطة', 'قم_احذف_آخر') as unknown as { _h: LLNode | null; _t: LLNode | null; _len: number };
+      if (!col._t) throw new ArabicError('القائمة المرتبطة فارغة');
+      const v = col._t.v; col._t = col._t.p;
+      if (col._t) col._t.n = null; else col._h = null;
+      col._len--; return v;
+    }});
+    g.define('قم_حجم', { __b: true, fn: (l: unknown) => (requireCol(l, 'قائمة_مرتبطة', 'قم_حجم') as unknown as { _len: number })._len });
+    g.define('قم_إلى_قائمة', { __b: true, fn: (l: unknown) => {
+      const col = requireCol(l, 'قائمة_مرتبطة', 'قم_إلى_قائمة') as unknown as { _h: LLNode | null };
+      const out: unknown[] = []; let n = col._h;
+      while (n) { out.push(n.v); n = n.n; }
+      return out;
+    }});
+
+    // ── شجرة_بحث (Binary Search Tree) ───────────────────────────────
+    type BSTNode = { v: number; l: BSTNode | null; r: BSTNode | null };
+    g.define('شجرة_بحث', { __b: true, fn: () => ({ __col__: 'شجرة_بحث', _root: null as BSTNode | null, _size: 0 }) });
+    g.define('شب_أدخل', { __b: true, fn: (t: unknown, v: number) => {
+      const col = requireCol(t, 'شجرة_بحث', 'شب_أدخل') as unknown as { _root: BSTNode | null; _size: number };
+      const nv = Number(v);
+      const newNode: BSTNode = { v: nv, l: null, r: null };
+      if (!col._root) { col._root = newNode; col._size++; return t; }
+      let node = col._root;
+      while (true) {
+        if (nv === node.v) return t;
+        if (nv < node.v) { if (!node.l) { node.l = newNode; col._size++; return t; } node = node.l; }
+        else { if (!node.r) { node.r = newNode; col._size++; return t; } node = node.r; }
+      }
+    }});
+    g.define('شب_يحوي', { __b: true, fn: (t: unknown, v: number) => {
+      const col = requireCol(t, 'شجرة_بحث', 'شب_يحوي') as unknown as { _root: BSTNode | null };
+      const nv = Number(v); let n = col._root;
+      while (n) { if (nv === n.v) return true; n = nv < n.v ? n.l : n.r; }
+      return false;
+    }});
+    g.define('شب_تجوال', { __b: true, fn: (t: unknown) => {
+      const col = requireCol(t, 'شجرة_بحث', 'شب_تجوال') as unknown as { _root: BSTNode | null };
+      const out: number[] = []; const stack: BSTNode[] = []; let cur = col._root;
+      while (cur || stack.length) {
+        while (cur) { stack.push(cur); cur = cur.l; }
+        const n = stack.pop()!; out.push(n.v); cur = n.r;
+      }
+      return out;
+    }});
+    g.define('شب_حجم', { __b: true, fn: (t: unknown) => (requireCol(t, 'شجرة_بحث', 'شب_حجم') as unknown as { _size: number })._size });
+    g.define('شب_أدنى', { __b: true, fn: (t: unknown) => {
+      const col = requireCol(t, 'شجرة_بحث', 'شب_أدنى') as unknown as { _root: BSTNode | null };
+      let n = col._root; if (!n) throw new ArabicError('الشجرة فارغة');
+      while (n.l) n = n.l; return n.v;
+    }});
+    g.define('شب_أقصى', { __b: true, fn: (t: unknown) => {
+      const col = requireCol(t, 'شجرة_بحث', 'شب_أقصى') as unknown as { _root: BSTNode | null };
+      let n = col._root; if (!n) throw new ArabicError('الشجرة فارغة');
+      while (n.r) n = n.r; return n.v;
+    }});
+
+    // ── تيار (Stream API, lazy chained ops) ─────────────────────────
+    type StreamOp = { kind: 'map' | 'filter' | 'take' | 'drop'; arg?: unknown };
+    type Stream = Col & { _src: () => unknown[]; _ops: StreamOp[] };
+    const runStream = (s: Stream): unknown[] => {
+      let arr = s._src();
+      for (const op of s._ops) {
+        if (op.kind === 'map') arr = arr.map(x => self.callFunction(op.arg as ArabicFunction, [x]));
+        else if (op.kind === 'filter') arr = arr.filter(x => self.isTruthy(self.callFunction(op.arg as ArabicFunction, [x])));
+        else if (op.kind === 'take') arr = arr.slice(0, Math.max(0, Number(op.arg)));
+        else if (op.kind === 'drop') arr = arr.slice(Math.max(0, Number(op.arg)));
+      }
+      return arr;
+    };
+    const newStream = (src: () => unknown[], ops: StreamOp[]): Stream => ({ __col__: 'تيار', _src: src, _ops: ops });
+    g.define('تيار', { __b: true, fn: (arr: unknown[]) => {
+      if (!Array.isArray(arr)) throw new ArabicError("'تيار' يتطلّب قائمة");
+      return newStream(() => [...arr], []);
+    }});
+    g.define('تيار_من_نطاق', { __b: true, fn: (a: number, b: number, step: number = 1) => {
+      const start = Math.trunc(a), end = Math.trunc(b), st = Math.trunc(step) || 1;
+      return newStream(() => {
+        const out: number[] = [];
+        if (st > 0) for (let i = start; i < end; i += st) out.push(i);
+        else for (let i = start; i > end; i += st) out.push(i);
+        return out;
+      }, []);
+    }});
+    g.define('تيار_خارطة', { __b: true, fn: (s: unknown, fn: ArabicFunction) => {
+      const col = requireCol(s, 'تيار', 'تيار_خارطة') as Stream;
+      return newStream(col._src, [...col._ops, { kind: 'map', arg: fn }]);
+    }});
+    g.define('تيار_تصفية', { __b: true, fn: (s: unknown, fn: ArabicFunction) => {
+      const col = requireCol(s, 'تيار', 'تيار_تصفية') as Stream;
+      return newStream(col._src, [...col._ops, { kind: 'filter', arg: fn }]);
+    }});
+    g.define('تيار_خذ', { __b: true, fn: (s: unknown, n: number) => {
+      const col = requireCol(s, 'تيار', 'تيار_خذ') as Stream;
+      return newStream(col._src, [...col._ops, { kind: 'take', arg: n }]);
+    }});
+    g.define('تيار_اسقط', { __b: true, fn: (s: unknown, n: number) => {
+      const col = requireCol(s, 'تيار', 'تيار_اسقط') as Stream;
+      return newStream(col._src, [...col._ops, { kind: 'drop', arg: n }]);
+    }});
+    g.define('تيار_إلى_قائمة', { __b: true, fn: (s: unknown) => runStream(requireCol(s, 'تيار', 'تيار_إلى_قائمة') as Stream) });
+    g.define('تيار_عد', { __b: true, fn: (s: unknown) => runStream(requireCol(s, 'تيار', 'تيار_عد') as Stream).length });
+    g.define('تيار_مجموع', { __b: true, fn: (s: unknown) => runStream(requireCol(s, 'تيار', 'تيار_مجموع') as Stream).reduce((a: number, b) => a + Number(b), 0) });
+    g.define('تيار_أقصى', { __b: true, fn: (s: unknown) => {
+      const arr = runStream(requireCol(s, 'تيار', 'تيار_أقصى') as Stream);
+      if (arr.length === 0) throw new ArabicError('التيار فارغ');
+      return arr.reduce((a, b) => Number(a) > Number(b) ? a : b);
+    }});
+    g.define('تيار_أدنى', { __b: true, fn: (s: unknown) => {
+      const arr = runStream(requireCol(s, 'تيار', 'تيار_أدنى') as Stream);
+      if (arr.length === 0) throw new ArabicError('التيار فارغ');
+      return arr.reduce((a, b) => Number(a) < Number(b) ? a : b);
+    }});
+    g.define('تيار_اختصر', { __b: true, fn: (s: unknown, fn: ArabicFunction, init: unknown) => {
+      const arr = runStream(requireCol(s, 'تيار', 'تيار_اختصر') as Stream);
+      let acc = init;
+      for (const x of arr) acc = self.callFunction(fn, [acc, x]);
+      return acc;
+    }});
+    g.define('تيار_متميز', { __b: true, fn: (s: unknown) => {
+      const arr = runStream(requireCol(s, 'تيار', 'تيار_متميز') as Stream);
+      const seen = new Set<string>(); const out: unknown[] = [];
+      for (const x of arr) { const k = keyOf(x); if (!seen.has(k)) { seen.add(k); out.push(x); } }
+      return out;
+    }});
+    g.define('تيار_مرتب', { __b: true, fn: (s: unknown, keyFn?: ArabicFunction) => {
+      const arr = [...runStream(requireCol(s, 'تيار', 'تيار_مرتب') as Stream)];
+      if (keyFn) arr.sort((a, b) => {
+        const ka = self.callFunction(keyFn, [a]) as number; const kb = self.callFunction(keyFn, [b]) as number;
+        return Number(ka) - Number(kb);
+      });
+      else arr.sort((a, b) => Number(a) - Number(b));
+      return arr;
+    }});
+    g.define('تيار_جمّع_بـ', { __b: true, fn: (s: unknown, keyFn: ArabicFunction) => {
+      const arr = runStream(requireCol(s, 'تيار', 'تيار_جمّع_بـ') as Stream);
+      const m = new Map<string, unknown[]>();
+      for (const x of arr) {
+        const k = keyOf(self.callFunction(keyFn, [x]));
+        if (!m.has(k)) m.set(k, []);
+        m.get(k)!.push(x);
+      }
+      return { __col__: 'قاموس', _map: m };
+    }});
+
+    // ── Algorithms ──────────────────────────────────────────────────
+    const cmpDefault = (a: unknown, b: unknown) => Number(a) - Number(b);
+    g.define('ترتيب_سريع', { __b: true, fn: (arr: unknown[], cmpFn?: ArabicFunction) => {
+      const cmp = cmpFn ? (a: unknown, b: unknown) => Number(self.callFunction(cmpFn, [a, b])) : cmpDefault;
+      const a = [...arr];
+      const qs = (lo: number, hi: number) => {
+        if (lo >= hi) return;
+        const pivot = a[Math.floor((lo + hi) / 2)];
+        let i = lo, j = hi;
+        while (i <= j) {
+          while (cmp(a[i], pivot) < 0) i++;
+          while (cmp(a[j], pivot) > 0) j--;
+          if (i <= j) { [a[i], a[j]] = [a[j], a[i]]; i++; j--; }
+        }
+        qs(lo, j); qs(i, hi);
+      };
+      qs(0, a.length - 1); return a;
+    }});
+    g.define('ترتيب_دمج', { __b: true, fn: (arr: unknown[], cmpFn?: ArabicFunction) => {
+      const cmp = cmpFn ? (a: unknown, b: unknown) => Number(self.callFunction(cmpFn, [a, b])) : cmpDefault;
+      const merge = (a: unknown[], b: unknown[]): unknown[] => {
+        const out: unknown[] = []; let i = 0, j = 0;
+        while (i < a.length && j < b.length) cmp(a[i], b[j]) <= 0 ? out.push(a[i++]) : out.push(b[j++]);
+        return out.concat(a.slice(i)).concat(b.slice(j));
+      };
+      const ms = (xs: unknown[]): unknown[] => xs.length <= 1 ? xs : merge(ms(xs.slice(0, xs.length >> 1)), ms(xs.slice(xs.length >> 1)));
+      return ms([...arr]);
+    }});
+    g.define('بحث_ثنائي', { __b: true, fn: (arr: unknown[], target: unknown) => {
+      const t = Number(target); let lo = 0, hi = arr.length - 1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1; const v = Number(arr[mid]);
+        if (v === t) return mid;
+        if (v < t) lo = mid + 1; else hi = mid - 1;
+      }
+      return -1;
+    }});
+    g.define('بحث_خطي', { __b: true, fn: (arr: unknown[], target: unknown) => {
+      for (let i = 0; i < arr.length; i++) if (self.deepEqual(arr[i], target)) return i;
+      return -1;
+    }});
+    g.define('مسافة_تحرير', { __b: true, fn: (a: string, b: string) => {
+      const sa = String(a), sb = String(b); const m = sa.length, n = sb.length;
+      if (m === 0) return n; if (n === 0) return m;
+      const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+      for (let i = 0; i <= m; i++) dp[i][0] = i;
+      for (let j = 0; j <= n; j++) dp[0][j] = j;
+      for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) {
+        const cost = sa[i - 1] === sb[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+      }
+      return dp[m][n];
+    }});
+    g.define('تشابه_نصوص', { __b: true, fn: (a: string, b: string) => {
+      const sa = String(a), sb = String(b); const max = Math.max(sa.length, sb.length);
+      if (max === 0) return 1;
+      const m = sa.length, n = sb.length;
+      const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+      for (let i = 0; i <= m; i++) dp[i][0] = i;
+      for (let j = 0; j <= n; j++) dp[0][j] = j;
+      for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) {
+        const cost = sa[i - 1] === sb[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+      }
+      return 1 - dp[m][n] / max;
+    }});
+    // Graph algorithms — graph as قاموس: node => [neighbors]
+    const graphNeighbors = (g2: unknown, node: unknown): unknown[] => {
+      if (isCol(g2, 'قاموس')) {
+        const m = (g2 as Col)._map as Map<string, unknown>;
+        const v = m.get(keyOf(node));
+        return Array.isArray(v) ? v : [];
+      }
+      return [];
+    };
+    g.define('بحث_عمق', { __b: true, fn: (graphArg: unknown, start: unknown) => {
+      const visited = new Set<string>(); const order: unknown[] = [];
+      const stack: unknown[] = [start];
+      while (stack.length) {
+        const n = stack.pop(); const k = keyOf(n);
+        if (visited.has(k)) continue;
+        visited.add(k); order.push(n);
+        const nbs = graphNeighbors(graphArg, n);
+        for (let i = nbs.length - 1; i >= 0; i--) if (!visited.has(keyOf(nbs[i]))) stack.push(nbs[i]);
+      }
+      return order;
+    }});
+    g.define('بحث_عرض', { __b: true, fn: (graphArg: unknown, start: unknown) => {
+      const visited = new Set<string>([keyOf(start)]); const order: unknown[] = [start];
+      const queue: unknown[] = [start];
+      while (queue.length) {
+        const n = queue.shift();
+        for (const nb of graphNeighbors(graphArg, n)) {
+          const k = keyOf(nb);
+          if (!visited.has(k)) { visited.add(k); order.push(nb); queue.push(nb); }
+        }
+      }
+      return order;
+    }});
+    g.define('أقصر_مسار', { __b: true, fn: (graphArg: unknown, start: unknown, end: unknown) => {
+      // BFS shortest path (unweighted)
+      const startKey = keyOf(start), endKey = keyOf(end);
+      const prev = new Map<string, unknown>();
+      const visited = new Set<string>([startKey]);
+      const queue: unknown[] = [start];
+      while (queue.length) {
+        const n = queue.shift();
+        if (keyOf(n) === endKey) {
+          const path: unknown[] = [n]; let cur = n;
+          while (keyOf(cur) !== startKey) { cur = prev.get(keyOf(cur)); path.unshift(cur); }
+          return path;
+        }
+        for (const nb of graphNeighbors(graphArg, n)) {
+          const k = keyOf(nb);
+          if (!visited.has(k)) { visited.add(k); prev.set(k, n); queue.push(nb); }
+        }
+      }
+      return [];
+    }});
+
+    // ── BigInt (عدد_كبير) ───────────────────────────────────────────
+    const toBig = (v: unknown): bigint => {
+      if (typeof v === 'bigint') return v;
+      if (isCol(v, 'عدد_كبير')) return (v as Col)._big as bigint;
+      if (typeof v === 'number') return BigInt(Math.trunc(v));
+      if (typeof v === 'string') { try { return BigInt(v); } catch { throw new ArabicError(`نص ليس عدداً صحيحاً: '${v}'`); } }
+      throw new ArabicError('متوقع عدد كبير أو رقم');
+    };
+    const wrapBig = (b: bigint): Col => ({ __col__: 'عدد_كبير', _big: b });
+    g.define('عدد_كبير', { __b: true, fn: (v: unknown) => wrapBig(toBig(v)) });
+    g.define('كب_جمع', { __b: true, fn: (a: unknown, b: unknown) => wrapBig(toBig(a) + toBig(b)) });
+    g.define('كب_طرح', { __b: true, fn: (a: unknown, b: unknown) => wrapBig(toBig(a) - toBig(b)) });
+    g.define('كب_ضرب', { __b: true, fn: (a: unknown, b: unknown) => wrapBig(toBig(a) * toBig(b)) });
+    g.define('كب_قسمة', { __b: true, fn: (a: unknown, b: unknown) => {
+      const bb = toBig(b); if (bb === 0n) throw new ArabicError('قسمة على صفر');
+      return wrapBig(toBig(a) / bb);
+    }});
+    g.define('كب_باقي', { __b: true, fn: (a: unknown, b: unknown) => {
+      const bb = toBig(b); if (bb === 0n) throw new ArabicError('قسمة على صفر');
+      return wrapBig(toBig(a) % bb);
+    }});
+    g.define('كب_أس', { __b: true, fn: (a: unknown, b: unknown) => {
+      const bb = toBig(b); if (bb < 0n) throw new ArabicError('الأس السالب غير مدعوم في الأعداد الكبيرة');
+      if (bb > 10000n) throw new ArabicError('الأس كبير جداً (الحد الأقصى 10،000)');
+      return wrapBig(toBig(a) ** bb);
+    }});
+    g.define('كب_مقارنة', { __b: true, fn: (a: unknown, b: unknown) => {
+      const av = toBig(a), bv = toBig(b);
+      return av < bv ? -1 : av > bv ? 1 : 0;
+    }});
+    g.define('كب_إلى_نص', { __b: true, fn: (v: unknown) => toBig(v).toString() });
+    g.define('كب_مضروب', { __b: true, fn: (n: number) => {
+      const ni = Math.trunc(n); if (ni < 0) throw new ArabicError('المضروب لا يُعرَّف للأعداد السالبة');
+      if (ni > 5000) throw new ArabicError('الحد الأقصى للمضروب الكبير 5،000');
+      let r = 1n; for (let i = 2; i <= ni; i++) r *= BigInt(i);
+      return wrapBig(r);
+    }});
   }
 
   private callFunction(fn: ArabicFunction, args: unknown[], thisObj?: unknown): unknown {
@@ -1679,14 +2202,17 @@ export class Interpreter {
             return this.callFunction(maybeMethod, args, obj);
           }
           if (maybeMethod && (maybeMethod as Record<string, unknown>).__b) {
-            return (maybeMethod as { __b: boolean; fn: (...a: unknown[]) => unknown }).fn(...args);
+            try { return (maybeMethod as { __b: boolean; fn: (...a: unknown[]) => unknown }).fn(...args); }
+            catch (err) { if (err instanceof ArabicError || err instanceof ReturnSignal) throw err; throw new ArabicError(`خطأ في تنفيذ '${method}': ${(err as Error)?.message ?? String(err)}`); }
           }
         }
 
         const callee = this.evalExpr(e.callee, env);
 
         if (callee && typeof callee === 'object' && (callee as Record<string, unknown>).__b) {
-          return (callee as { __b: boolean; fn: (...a: unknown[]) => unknown }).fn(...args);
+          const cname = (e.callee as Record<string, unknown>)?.name as string | undefined;
+          try { return (callee as { __b: boolean; fn: (...a: unknown[]) => unknown }).fn(...args); }
+          catch (err) { if (err instanceof ArabicError || err instanceof ReturnSignal) throw err; throw new ArabicError(`خطأ في تنفيذ '${cname ?? 'دالة'}': ${(err as Error)?.message ?? String(err)}`); }
         }
 
         if (callee instanceof ArabicFunction) {

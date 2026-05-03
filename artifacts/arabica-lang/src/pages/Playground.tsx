@@ -456,6 +456,22 @@ function DocsPanel() {
       </section>
 
       <section>
+        <h4>☕ هياكل بيانات بمستوى Java (Tier 7) 🆕</h4>
+        <p style={{ fontSize: '0.85em', opacity: 0.85, lineHeight: 1.7 }}>
+          <strong>قاموس (HashMap):</strong> <code>قاموس()</code>، <code>قاموس_ضع/جلب/له/احذف/حجم/مفاتيح/قيم/أزواج</code><br/>
+          <strong>مجموعة (Set):</strong> <code>مجموعة([…])</code>، <code>مجم_أضف/احذف/يحوي/حجم</code>، <code>مجم_اتحاد/تقاطع/فرق</code><br/>
+          <strong>طابور (Queue, FIFO):</strong> <code>طابور()</code>، <code>طب_ادفع/اسحب/رأس/حجم/فارغ؟</code><br/>
+          <strong>مكدس (Stack, LIFO):</strong> <code>مكدس()</code>، <code>مك_ادفع/اسحب/قمة/حجم/فارغ؟</code><br/>
+          <strong>كومة أولوية (Min-Heap):</strong> <code>كومة(?دالة_مفتاح)</code>، <code>كم_ادفع/اسحب/قمة/حجم</code><br/>
+          <strong>قائمة مرتبطة:</strong> <code>قائمة_مرتبطة()</code>، <code>قم_أضف_بداية/نهاية</code>، <code>قم_احذف_أول/آخر</code><br/>
+          <strong>شجرة بحث:</strong> <code>شجرة_بحث()</code>، <code>شب_أدخل/يحوي/تجوال/أدنى/أقصى/حجم</code><br/>
+          <strong>تيارات (Streams):</strong> <code>تيار(قائمة)</code>، <code>تيار_من_نطاق(أ، ب)</code>، عمليات كسولة: <code>تيار_خارطة/تصفية/خذ/اسقط/متميز/مرتب</code>، طرفية: <code>تيار_إلى_قائمة/عد/مجموع/أقصى/أدنى/اختصر/جمّع_بـ</code><br/>
+          <strong>خوارزميات:</strong> <code>ترتيب_سريع</code>، <code>ترتيب_دمج</code>، <code>بحث_ثنائي</code>، <code>بحث_خطي</code>، <code>مسافة_تحرير</code>، <code>تشابه_نصوص</code>، <code>بحث_عمق (DFS)</code>، <code>بحث_عرض (BFS)</code>، <code>أقصر_مسار</code><br/>
+          <strong>أعداد ضخمة (BigInt):</strong> <code>عدد_كبير(x)</code>، <code>كب_جمع/طرح/ضرب/قسمة/باقي/أس/مقارنة</code>، <code>كب_مضروب(n)</code>، <code>كب_إلى_نص</code>
+        </p>
+      </section>
+
+      <section>
         <h4>الذكاء الاصطناعي 🧠</h4>
         <code>{`شبكة_عصبية([2، 8، 1]، ["ريلو"، "سيغمويد"])\nدرّب(نموذج، بيانات، 1000)\nتنبأ(نموذج، [1، 0])\nاحفظ_نموذج / حمّل_نموذج`}</code>
       </section>
