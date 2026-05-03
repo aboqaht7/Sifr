@@ -52,19 +52,19 @@ export interface CallExpr { type: 'CallExpr'; callee: Expression; args: Expressi
 export interface MemberExpr { type: 'MemberExpr'; object: Expression; property: string }
 export interface IndexExpr { type: 'IndexExpr'; object: Expression; index: Expression }
 
-const VAR_KW = new Set(['كنز']);
-const CONST_KW = new Set(['سرّ', 'سر']);
-const FUNC_KW = new Set(['مهمّة', 'مهمة']);
-const STRUCT_KW = new Set(['بنية']);
+const VAR_KW = new Set(['كنز', 'قيمة', 'قيمه']);
+const CONST_KW = new Set(['سرّ', 'سر', 'ثابت']);
+const FUNC_KW = new Set(['مهمّة', 'مهمة', 'دالة', 'وظيفة', 'وظيفه']);
+const STRUCT_KW = new Set(['بنية', 'نموذج']);
 const IF_KW = new Set(['إن', 'ان']);
 const ELSE_KW = new Set(['وإلا', 'والا']);
-const WHILE_KW = new Set(['كرر']);
-const FOR_KW = new Set(['جوال']);
+const WHILE_KW = new Set(['كرر', 'طالما']);
+const FOR_KW = new Set(['جوال', 'لكل', 'دورة', 'دوره']);
 const FROM_KW = new Set(['من']);
 const TO_KW = new Set(['إلى', 'الى']);
 const IN_KW = new Set(['في']);
 const STEP_KW = new Set(['بخطوة']);
-const RETURN_KW = new Set(['أعد', 'اعد']);
+const RETURN_KW = new Set(['أعد', 'اعد', 'أرجع', 'ارجع']);
 const BREAK_KW = new Set(['قف']);
 const CONTINUE_KW = new Set(['استمر']);
 const MATCH_KW = new Set(['طابق']);
@@ -75,7 +75,7 @@ const INHERITS_KW = new Set(['وارث', 'يرث']);
 const MODULE_KW = new Set(['وحدة']);
 const IMPORT_KW = new Set(['استورد']);
 const EXPORT_KW = new Set(['صدّر', 'صدر']);
-const END_KW = new Set(['انتهى']);
+const END_KW = new Set(['انتهى', 'نهاية']);
 
 class ParseError extends Error {
   constructor(message: string, public line: number, public col: number) {
