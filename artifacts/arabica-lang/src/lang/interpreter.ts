@@ -8,7 +8,13 @@ class ContinueSignal {}
 
 class ArabicError extends Error {
   public loc?: { line: number; col: number };
+  public arabicStack?: { name: string; loc: { line: number; col: number } | null }[];
   constructor(message: string) { super(message); this.name = 'خطأ'; }
+}
+
+interface ModuleEnv {
+  env: Environment;
+  exports: Set<string>;
 }
 
 interface StructDef {
@@ -18,7 +24,7 @@ interface StructDef {
   methods: { name: string; params: string[]; body: unknown; declEnv: Environment }[];
 }
 
-type EnvEntry = { value: unknown; isConst: boolean };
+type EnvEntry = { value: unknown; isConst: boolean; typeName?: string | null };
 
 class Environment {
   private vars = new Map<string, EnvEntry>();
@@ -39,16 +45,30 @@ class Environment {
     const e = this.vars.get(name);
     if (e !== undefined) {
       if (e.isConst) throw new ArabicError(`لا يمكن تغيير قيمة الثابت '${name}'`);
-      this.vars.set(name, { value, isConst: false });
+      // Preserve type annotation across re-assignment; the interpreter checks via getTypeAnnotation before calling set
+      this.vars.set(name, { value, isConst: false, typeName: e.typeName });
       return;
     }
     if (this.parent) { this.parent.set(name, value); return; }
     throw new ArabicError(`المتغير '${name}' غير معرّف`);
   }
+  setTypeAnnotation(name: string, typeName: string) {
+    const e = this.vars.get(name);
+    if (e) this.vars.set(name, { ...e, typeName });
+  }
+  getTypeAnnotation(name: string): string | null | undefined {
+    const e = this.vars.get(name);
+    if (e) return e.typeName ?? null;
+    if (this.parent) return this.parent.getTypeAnnotation(name);
+    return null;
+  }
 
   has(name: string): boolean {
     return this.vars.has(name) || (this.parent?.has(name) ?? false);
   }
+  hasOwn(name: string): boolean { return this.vars.has(name); }
+  getOwnEntry(name: string): EnvEntry | undefined { return this.vars.get(name); }
+  defineEntry(name: string, entry: EnvEntry) { this.vars.set(name, { ...entry }); }
 }
 
 class ArabicFunction {
@@ -71,6 +91,9 @@ export class Interpreter {
   private readonly MAX_OPS = 2_000_000;
   private currentLoc: { line: number; col: number } | null = null;
   private structs = new Map<string, StructDef>();
+  private modules = new Map<string, ModuleEnv>();
+  private callStack: { name: string; callerLoc: { line: number; col: number } | null }[] = [];
+  private testRegistry: { name: string; fn: ArabicFunction }[] = [];
   public canvasEl: HTMLElement | null = null;
 
   constructor() {
@@ -592,11 +615,77 @@ export class Interpreter {
       el.textContent = self.arabicStr(text);
       return el;
     }});
+
+    // ==================== Test framework ====================
+    g.define('اختبر', { __b: true, fn: (name: unknown, fn: unknown) => {
+      if (typeof name !== 'string') throw new ArabicError(`'اختبر' يحتاج اسم نصّي`);
+      if (!(fn instanceof ArabicFunction)) throw new ArabicError(`'اختبر' يحتاج دالّة`);
+      self.testRegistry.push({ name, fn });
+      return null;
+    }});
+    g.define('توقّع', { __b: true, fn: (actual: unknown, expected: unknown, label?: unknown) => {
+      if (!self.deepEqual(actual, expected)) {
+        const lbl = typeof label === 'string' ? ` (${label})` : '';
+        throw new ArabicError(`فشل التوقّع${lbl}: متوقع ${self.arabicStr(expected)}، وُجد ${self.arabicStr(actual)}`);
+      }
+      return null;
+    }});
+    g.define('توقع', { __b: true, fn: (actual: unknown, expected: unknown, label?: unknown) => {
+      if (!self.deepEqual(actual, expected)) {
+        const lbl = typeof label === 'string' ? ` (${label})` : '';
+        throw new ArabicError(`فشل التوقّع${lbl}: متوقع ${self.arabicStr(expected)}، وُجد ${self.arabicStr(actual)}`);
+      }
+      return null;
+    }});
+    g.define('توقّع_صدق', { __b: true, fn: (cond: unknown, label?: unknown) => {
+      if (!self.isTruthy(cond)) {
+        const lbl = typeof label === 'string' ? ` (${label})` : '';
+        throw new ArabicError(`فشل التوقّع${lbl}: متوقع صدق، وُجد ${self.arabicStr(cond)}`);
+      }
+      return null;
+    }});
+    g.define('توقّع_خطأ', { __b: true, fn: (fn: unknown, msgPart?: unknown) => {
+      if (!(fn instanceof ArabicFunction)) throw new ArabicError(`'توقّع_خطأ' يحتاج دالّة`);
+      try {
+        self.callFunction(fn, []);
+      } catch (e) {
+        if (typeof msgPart === 'string') {
+          const m = e instanceof Error ? e.message : String(e);
+          if (!m.includes(msgPart)) throw new ArabicError(`فشل التوقّع: الخطأ لا يحتوي على '${msgPart}'، الفعلي: ${m}`);
+        }
+        return null;
+      }
+      throw new ArabicError(`فشل التوقّع: لم يُرمَ خطأ`);
+    }});
+    g.define('شغّل_اختبارات', { __b: true, fn: () => {
+      if (self.testRegistry.length === 0) {
+        self.emit('لا توجد اختبارات مسجّلة', 'info');
+        return { نجح: 0, فشل: 0, مجموع: 0 };
+      }
+      let passed = 0, failed = 0;
+      self.emit(`▶ تشغيل ${self.testRegistry.length} اختبار...`, 'info');
+      for (const t of self.testRegistry) {
+        try {
+          self.callFunction(t.fn, []);
+          self.emit(`  ✓ ${t.name}`, 'info');
+          passed++;
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          self.emit(`  ✗ ${t.name}: ${m}`, 'error');
+          failed++;
+        }
+      }
+      const summary = `النتيجة: ${passed} نجح، ${failed} فشل من أصل ${self.testRegistry.length}`;
+      self.emit(failed === 0 ? `✓ ${summary}` : `✗ ${summary}`, failed === 0 ? 'info' : 'error');
+      return { نجح: passed, فشل: failed, مجموع: self.testRegistry.length };
+    }});
   }
 
   private callFunction(fn: ArabicFunction, args: unknown[], thisObj?: unknown): unknown {
     this.callDepth++;
     if (this.callDepth > this.MAX_DEPTH) throw new ArabicError('تجاوز عمق الاستدعاء الأقصى (تحقق من التكرار اللانهائي)');
+    this.callStack.push({ name: fn.name ?? 'مجهولة', callerLoc: this.currentLoc });
+    const savedLoc = this.currentLoc;
     try {
       const fnEnv = new Environment(fn.closure);
       if (thisObj !== undefined) fnEnv.define('هذا', thisObj);
@@ -612,6 +701,8 @@ export class Interpreter {
       }
     } finally {
       this.callDepth--;
+      this.callStack.pop();
+      this.currentLoc = savedLoc;
     }
   }
 
@@ -621,23 +712,86 @@ export class Interpreter {
     this.callDepth = 0;
     this.currentLoc = null;
     this.structs.clear();
+    this.modules.clear();
+    this.callStack = [];
+    this.testRegistry = [];
     try {
       const tokens = tokenize(source);
       const ast = parse(tokens);
       this.execBlock(ast.body, this.globals);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      // Parser errors already encode "خطأ في السطر N، العمود C: ..." → reformat to [السطر N] prefix
-      const parseMatch = msg.match(/^خطأ في السطر (\d+)، العمود \d+: (.*)$/s);
-      if (parseMatch) {
-        this.emit(`✗ [السطر ${parseMatch[1]}] ${parseMatch[2]}`, 'error');
-      } else {
-        const loc = (e as ArabicError)?.loc ?? this.currentLoc;
-        const prefix = loc ? `[السطر ${loc.line}] ` : '';
-        this.emit(`✗ ${prefix}${msg}`, 'error');
-      }
+      this.emitError(e);
     }
     return this.lines;
+  }
+
+  // Public: evaluate a single snippet against the persistent global env (REPL).
+  runSnippet(source: string): OutputLine[] {
+    const before = this.lines.length;
+    this.opCount = 0;
+    this.callDepth = 0;
+    this.currentLoc = null;
+    this.callStack = [];
+    try {
+      const tokens = tokenize(source);
+      const ast = parse(tokens);
+      let lastValue: unknown = undefined;
+      for (let i = 0; i < ast.body.length; i++) {
+        const stmt = ast.body[i];
+        this.tick();
+        const s = stmt as unknown as Record<string, unknown>;
+        const isLast = i === ast.body.length - 1;
+        if (isLast && s.type === 'ExpressionStatement') {
+          // For the last expression only, capture the value for REPL echo;
+          // route through the same loc/stack-enriching wrapper that execStmt uses.
+          const loc = s.loc as { line: number; col: number } | undefined;
+          if (loc) this.currentLoc = loc;
+          try {
+            lastValue = this.evalExpr(s.expression, this.globals);
+          } catch (e) {
+            if (e instanceof ArabicError) {
+              if (!e.loc && loc) e.loc = loc;
+              if (!e.arabicStack && this.callStack.length > 0) {
+                e.arabicStack = this.callStack.slice().reverse().map(f => ({ name: f.name, loc: f.callerLoc }));
+              }
+            }
+            throw e;
+          }
+        } else {
+          this.execStmt(stmt, this.globals);
+        }
+      }
+      if (lastValue !== undefined && lastValue !== null) {
+        // Avoid echoing if the snippet already printed (had output beyond `before`)
+        const printedSomething = this.lines.length > before;
+        if (!printedSomething) this.emit(`= ${this.arabicStr(lastValue)}`, 'info');
+      }
+    } catch (e: unknown) {
+      this.emitError(e);
+    }
+    return this.lines.slice(before);
+  }
+
+  private emitError(e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const parseMatch = msg.match(/^خطأ في السطر (\d+)، العمود \d+: (.*)$/s);
+    if (parseMatch) {
+      this.emit(`✗ [السطر ${parseMatch[1]}] ${parseMatch[2]}`, 'error');
+      return;
+    }
+    const ae = e as ArabicError;
+    const loc = ae?.loc ?? this.currentLoc;
+    const prefix = loc ? `[السطر ${loc.line}] ` : '';
+    this.emit(`✗ ${prefix}${msg}`, 'error');
+    // Stack trace (top → bottom: deepest frame first)
+    const frames = ae?.arabicStack ?? this.callStack.slice().reverse().map(f => ({ name: f.name, loc: f.callerLoc }));
+    if (frames.length > 0) {
+      this.emit('  تتبّع الاستدعاءات:', 'error');
+      for (const f of frames) {
+        const at = f.loc ? `السطر ${f.loc.line}` : 'مكان غير معروف';
+        this.emit(`    ← في «${f.name}» (${at})`, 'error');
+      }
+    }
   }
 
   private execBlock(statements: unknown[], env: Environment) {
@@ -651,19 +805,116 @@ export class Interpreter {
     try {
       this.execStmtInner(s, env);
     } catch (e) {
-      if (e instanceof ArabicError && !e.loc && loc) e.loc = loc;
+      if (e instanceof ArabicError) {
+        if (!e.loc && loc) e.loc = loc;
+        // Capture call stack snapshot at throw site (deepest first)
+        if (!e.arabicStack && this.callStack.length > 0) {
+          e.arabicStack = this.callStack.slice().reverse().map(f => ({ name: f.name, loc: f.callerLoc }));
+        }
+      }
       throw e;
+    }
+  }
+
+  private checkType(typeName: string, value: unknown): boolean {
+    switch (typeName) {
+      case 'أي': return true;
+      case 'رقم': return typeof value === 'number' && !isNaN(value);
+      case 'نص': return typeof value === 'string';
+      case 'منطقي': return typeof value === 'boolean';
+      case 'قائمة': return Array.isArray(value);
+      case 'كائن': return typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof ArabicFunction);
+      case 'دالة': return value instanceof ArabicFunction || (typeof value === 'object' && value !== null && (value as { __b?: boolean }).__b === true);
+      case 'عدم': return value === null || value === undefined;
+      default:
+        if (this.structs.has(typeName)) {
+          const v = value as { __struct__?: string } | null;
+          if (!v || typeof v !== 'object') return false;
+          let cur: string | undefined = v.__struct__;
+          while (cur) {
+            if (cur === typeName) return true;
+            cur = this.structs.get(cur)?.parent ?? undefined;
+          }
+          return false;
+        }
+        // Unknown type names are a hard error (not a silent escape)
+        throw new ArabicError(`نوع غير معروف '${typeName}'. الأنواع المتاحة: رقم، نص، منطقي، قائمة، كائن، دالة، عدم، أي + أسماء البُنى`);
+    }
+  }
+  private typeName(v: unknown): string {
+    if (v === null || v === undefined) return 'عدم';
+    if (typeof v === 'number') return 'رقم';
+    if (typeof v === 'string') return 'نص';
+    if (typeof v === 'boolean') return 'منطقي';
+    if (Array.isArray(v)) return 'قائمة';
+    if (v instanceof ArabicFunction) return 'دالة';
+    if (typeof v === 'object') {
+      const s = (v as { __struct__?: string }).__struct__;
+      return s ?? 'كائن';
+    }
+    return typeof v;
+  }
+  private assertType(typeName: string | null | undefined, value: unknown, varName: string) {
+    if (!typeName) return;
+    if (!this.checkType(typeName, value)) {
+      throw new ArabicError(`خطأ نوع: المتغيّر '${varName}' من نوع '${typeName}'، لكن وُجد '${this.typeName(value)}'`);
     }
   }
 
   private execStmtInner(s: Record<string, unknown>, env: Environment) {
     switch (s.type) {
-      case 'VarDecl':
-        env.define(s.name as string, s.value ? this.evalExpr(s.value, env) : null);
+      case 'VarDecl': {
+        const value = s.value ? this.evalExpr(s.value, env) : null;
+        const typeName = s.typeName as string | null | undefined;
+        if (typeName && s.value) this.assertType(typeName, value, s.name as string);
+        env.define(s.name as string, value);
+        // Remember type for assignment checks (stored on env entry meta)
+        if (typeName) env.setTypeAnnotation(s.name as string, typeName);
         break;
-      case 'ConstDecl':
-        env.define(s.name as string, this.evalExpr(s.value, env), true);
+      }
+      case 'ConstDecl': {
+        const value = this.evalExpr(s.value, env);
+        const typeName = s.typeName as string | null | undefined;
+        if (typeName) this.assertType(typeName, value, s.name as string);
+        env.define(s.name as string, value, true);
+        if (typeName) env.setTypeAnnotation(s.name as string, typeName);
         break;
+      }
+      case 'ModuleDecl': {
+        const modName = s.name as string;
+        const modEnv = new Environment(this.globals);
+        const exports = new Set<string>();
+        // Track exports via a marker in the module env
+        (modEnv as Environment & { __exports?: Set<string> }).__exports = exports;
+        this.execBlock(s.body as unknown[], modEnv);
+        this.modules.set(modName, { env: modEnv, exports });
+        break;
+      }
+      case 'ExportStmt': {
+        const exports = (env as Environment & { __exports?: Set<string> }).__exports;
+        if (!exports) throw new ArabicError(`'صدّر' يجب أن يكون داخل وحدة`);
+        for (const n of s.names as string[]) {
+          // Restrict to module-local bindings only (not inherited globals/builtins)
+          if (!env.hasOwn(n)) throw new ArabicError(`لا يمكن تصدير '${n}': يجب تعريفه داخل الوحدة`);
+          exports.add(n);
+        }
+        break;
+      }
+      case 'ImportStmt': {
+        const modName = s.module as string;
+        const mod = this.modules.get(modName);
+        if (!mod) throw new ArabicError(`الوحدة '${modName}' غير معرّفة`);
+        for (const n of s.names as string[]) {
+          if (!mod.exports.has(n)) {
+            throw new ArabicError(`'${n}' غير مُصدَّر من الوحدة '${modName}'`);
+          }
+          // Preserve metadata (type annotation, constness) from the module
+          const entry = mod.env.getOwnEntry(n);
+          if (entry) env.defineEntry(n, entry);
+          else env.define(n, mod.env.get(n));
+        }
+        break;
+      }
       case 'FunctionDecl': {
         const fn = new ArabicFunction(s.params as string[], s.body, env, s.name as string);
         env.define(s.name as string, fn);
@@ -913,7 +1164,11 @@ export class Interpreter {
       case 'AssignExpr': {
         const value = this.evalExpr(e.value, env);
         const target = e.target as Record<string, unknown>;
-        if (target.type === 'Identifier') env.set(target.name as string, value);
+        if (target.type === 'Identifier') {
+          const ann = env.getTypeAnnotation(target.name as string);
+          if (ann) this.assertType(ann, value, target.name as string);
+          env.set(target.name as string, value);
+        }
         else if (target.type === 'IndexExpr') {
           const obj = this.evalExpr(target.object, env);
           const idx = this.evalExpr(target.index, env);

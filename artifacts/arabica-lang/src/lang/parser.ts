@@ -7,10 +7,14 @@ export type Statement =
   | VarDecl | ConstDecl | FunctionDecl | StructDecl
   | IfStatement | WhileStatement | ForStatement | ForEachStatement | MatchStatement
   | TryStatement | ReturnStatement | BreakStatement | ContinueStatement
+  | ModuleDecl | ImportStmt | ExportStmt
   | Block | ExpressionStatement;
 
-export interface VarDecl { type: 'VarDecl'; name: string; value: Expression | null; loc?: Loc }
-export interface ConstDecl { type: 'ConstDecl'; name: string; value: Expression; loc?: Loc }
+export interface VarDecl { type: 'VarDecl'; name: string; value: Expression | null; typeName?: string | null; loc?: Loc }
+export interface ConstDecl { type: 'ConstDecl'; name: string; value: Expression; typeName?: string | null; loc?: Loc }
+export interface ModuleDecl { type: 'ModuleDecl'; name: string; body: Statement[]; loc?: Loc }
+export interface ImportStmt { type: 'ImportStmt'; names: string[]; module: string; loc?: Loc }
+export interface ExportStmt { type: 'ExportStmt'; names: string[]; loc?: Loc }
 export interface FunctionDecl { type: 'FunctionDecl'; name: string; params: string[]; body: Block; loc?: Loc }
 export interface StructDecl { type: 'StructDecl'; name: string; parent: string | null; fields: string[]; methods: FunctionDecl[]; loc?: Loc }
 export interface IfStatement { type: 'IfStatement'; condition: Expression; consequent: Block; alternate: Statement | null; loc?: Loc }
@@ -68,6 +72,9 @@ const CASE_KW = new Set(['حال']);
 const TRY_KW = new Set(['حاول']);
 const CATCH_KW = new Set(['التقط']);
 const INHERITS_KW = new Set(['وارث', 'يرث']);
+const MODULE_KW = new Set(['وحدة']);
+const IMPORT_KW = new Set(['استورد']);
+const EXPORT_KW = new Set(['صدّر', 'صدر']);
 const END_KW = new Set(['انتهى']);
 
 class ParseError extends Error {
@@ -141,6 +148,9 @@ export function parse(tokens: Token[]): Program {
       else if (RETURN_KW.has(t.value)) { pos++; result = parseReturnStatement(); }
       else if (BREAK_KW.has(t.value)) { pos++; result = { type: 'BreakStatement' }; }
       else if (CONTINUE_KW.has(t.value)) { pos++; result = { type: 'ContinueStatement' }; }
+      else if (MODULE_KW.has(t.value)) { pos++; result = parseModuleDecl(); }
+      else if (IMPORT_KW.has(t.value)) { pos++; result = parseImportStmt(); }
+      else if (EXPORT_KW.has(t.value)) { pos++; result = parseExportStmt(); }
       else { result = parseExpressionStatement(); }
     } else {
       result = parseExpressionStatement();
@@ -149,16 +159,47 @@ export function parse(tokens: Token[]): Program {
     return result;
   }
 
+  function parseTypeAnnotation(): string | null {
+    // Optional ": typeName" — only consume colon if followed directly by an IDENT that isn't a keyword starter
+    if (!check('COLON')) return null;
+    // Lookahead: must be IDENT followed by (ASSIGN | end-of-decl context)
+    const savedPos = pos;
+    pos++;
+    if (cur().type !== 'IDENT') { pos = savedPos; return null; }
+    const typeName = tokens[pos++].value;
+    return typeName;
+  }
   function parseVarDecl(): VarDecl {
     const name = expect('IDENT').value;
+    const typeName = parseTypeAnnotation();
     let value: Expression | null = null;
     if (check('ASSIGN')) { pos++; value = parseExpression(); }
-    return { type: 'VarDecl', name, value };
+    return { type: 'VarDecl', name, value, typeName };
   }
   function parseConstDecl(): ConstDecl {
     const name = expect('IDENT').value;
+    const typeName = parseTypeAnnotation();
     expect('ASSIGN');
-    return { type: 'ConstDecl', name, value: parseExpression() };
+    return { type: 'ConstDecl', name, value: parseExpression(), typeName };
+  }
+  function parseModuleDecl(): ModuleDecl {
+    const name = expect('IDENT').value;
+    expect('COLON');
+    const body = parseBody();
+    expectIdent(END_KW, 'انتهى');
+    return { type: 'ModuleDecl', name, body };
+  }
+  function parseImportStmt(): ImportStmt {
+    const names: string[] = [expect('IDENT').value];
+    while (check('COMMA')) { pos++; names.push(expect('IDENT').value); }
+    expectIdent(FROM_KW, 'من');
+    const module = expect('IDENT').value;
+    return { type: 'ImportStmt', names, module };
+  }
+  function parseExportStmt(): ExportStmt {
+    const names: string[] = [expect('IDENT').value];
+    while (check('COMMA')) { pos++; names.push(expect('IDENT').value); }
+    return { type: 'ExportStmt', names };
   }
   function parseFunctionDecl(): FunctionDecl {
     const name = expect('IDENT').value;

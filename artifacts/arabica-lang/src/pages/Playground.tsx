@@ -73,6 +73,12 @@ export default function Playground() {
   const [showExamples, setShowExamples] = useState(true);
   const [showDocs, setShowDocs] = useState(false);
   const [showCanvas, setShowCanvas] = useState(false);
+  const [showRepl, setShowRepl] = useState(false);
+  const [replInput, setReplInput] = useState('');
+  const [replHistory, setReplHistory] = useState<{ kind: 'in' | OutputLine['kind']; text: string }[]>([]);
+  const [replPast, setReplPast] = useState<string[]>([]);
+  const [, setReplIdx] = useState<number>(-1);
+  const replRef = useRef<HTMLDivElement | null>(null);
   const [shareToast, setShareToast] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
@@ -105,6 +111,46 @@ export default function Playground() {
     setRunTime(null);
     if (canvasRef.current) canvasRef.current.innerHTML = '';
   }, []);
+
+  const submitRepl = useCallback(() => {
+    const src = replInput.trim();
+    if (!src) return;
+    const newLines: { kind: 'in' | OutputLine['kind']; text: string }[] = [{ kind: 'in', text: src }];
+    try {
+      const out = interpreter.runSnippet(src);
+      for (const l of out) newLines.push({ kind: l.kind, text: l.text });
+    } catch (e) {
+      newLines.push({ kind: 'error', text: e instanceof Error ? e.message : String(e) });
+    }
+    setReplHistory(h => [...h, ...newLines]);
+    setReplPast(p => [...p, src]);
+    setReplIdx(-1);
+    setReplInput('');
+    setTimeout(() => {
+      if (replRef.current) replRef.current.scrollTop = replRef.current.scrollHeight;
+    }, 0);
+  }, [replInput]);
+
+  const onReplKey = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); submitRepl(); }
+    else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setReplIdx(i => {
+        const next = i < 0 ? replPast.length - 1 : Math.max(0, i - 1);
+        if (replPast[next] !== undefined) setReplInput(replPast[next]);
+        return next;
+      });
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setReplIdx(i => {
+        if (i < 0) return -1;
+        const next = i + 1;
+        if (next >= replPast.length) { setReplInput(''); return -1; }
+        setReplInput(replPast[next]);
+        return next;
+      });
+    }
+  }, [submitRepl, replPast]);
 
   const share = useCallback(() => {
     const hash = encodeHashCode(code);
@@ -149,6 +195,13 @@ export default function Playground() {
             onClick={() => setShowCanvas(v => !v)}
           >
             🎨 لوحة
+          </button>
+          <button
+            className={`btn-ghost ${showRepl ? 'active' : ''}`}
+            onClick={() => setShowRepl(v => !v)}
+            title="جلسة تفاعلية فورية"
+          >
+            ⌨ تفاعلي
           </button>
           <button className="btn-ghost" onClick={share} title="انسخ رابطاً يحتوي على كودك">
             📤 شارك
@@ -207,6 +260,41 @@ export default function Playground() {
               </button>
             </div>
             <div ref={canvasRef} className="canvas-surface" dir="rtl" />
+          </div>
+        )}
+
+        {showRepl && (
+          <div className="repl-pane">
+            <div className="pane-header">
+              <span className="pane-title">⌨ جلسة تفاعلية (REPL)</span>
+              <span className="pane-hint">↑/↓ للتاريخ • Enter للتشغيل</span>
+              <button className="btn-tiny" onClick={() => { setReplHistory([]); }}>مسح</button>
+            </div>
+            <div ref={replRef} className="repl-history">
+              {replHistory.length === 0 && (
+                <div className="repl-empty">
+                  اكتب أي تعبير وستحصل على نتيجته فوراً. الجلسة تحتفظ بالمتغيّرات بين الأوامر.
+                </div>
+              )}
+              {replHistory.map((l, i) => (
+                <div key={i} className={`repl-line repl-${l.kind}`}>
+                  {l.kind === 'in' ? <span className="repl-prompt">›</span> : null}
+                  {' '}{l.text}
+                </div>
+              ))}
+            </div>
+            <div className="repl-input-row">
+              <span className="repl-prompt">›</span>
+              <input
+                className="repl-input"
+                value={replInput}
+                onChange={e => setReplInput(e.target.value)}
+                onKeyDown={onReplKey}
+                placeholder="مثال:  كنز س = 5    أو    س * 2"
+                dir="rtl"
+              />
+              <button className="btn-tiny btn-tiny-primary" onClick={submitRepl}>تشغيل</button>
+            </div>
           </div>
         )}
       </div>
@@ -312,6 +400,38 @@ function DocsPanel() {
       <section>
         <h4>الويب والتخزين</h4>
         <code>{`جلب(الرابط)\nاحفظ_ملف("name.txt"، محتوى)\nاحفظ("مفتاح"، قيمة)\nحمّل("مفتاح")`}</code>
+      </section>
+
+      <section>
+        <h4>الوحدات (Modules) 🆕</h4>
+        <code>{`وحدة رياضيات :\n    سرّ ط = 3.14\n    مهمّة مربع(س) : أعد س * س انتهى\n    صدّر ط، مربع\nانتهى\n\nاستورد ط، مربع من رياضيات`}</code>
+        <p style={{ fontSize: '0.8em', opacity: 0.7 }}>كل وحدة بيئة منعزلة. تُصدَّر فقط الأسماء بعد <code>صدّر</code>.</p>
+      </section>
+
+      <section>
+        <h4>الأنواع الاختيارية 🆕</h4>
+        <code>{`كنز عمر: رقم = 25\nكنز اسم: نص = "محمد"\nكنز ق: قائمة = [1، 2]`}</code>
+        <p style={{ fontSize: '0.8em', opacity: 0.7 }}>الأنواع: رقم، نص، منطقي، قائمة، كائن، دالة، عدم، أي + أسماء البُنى. تُفحص وقت التشغيل.</p>
+      </section>
+
+      <section>
+        <h4>إطار الاختبارات 🆕</h4>
+        <code>{`اختبر("اسم"، مهمّة() :\n    توقّع(جمع(2،3)، 5)\nانتهى)\n\nشغّل_اختبارات()`}</code>
+        <p style={{ fontSize: '0.8em', opacity: 0.7 }}>دوال: <code>اختبر</code>، <code>توقّع</code>، <code>توقّع_صدق</code>، <code>توقّع_خطأ</code>، <code>شغّل_اختبارات</code>.</p>
+      </section>
+
+      <section>
+        <h4>الجلسة التفاعلية (REPL) 🆕</h4>
+        <p style={{ fontSize: '0.85em', opacity: 0.8 }}>
+          اضغط <strong>⌨ تفاعلي</strong> في الأعلى — تجرّب التعابير سطراً سطراً، مع حفظ المتغيّرات بين الأوامر.
+        </p>
+      </section>
+
+      <section>
+        <h4>تتبّع الاستدعاءات 🆕</h4>
+        <p style={{ fontSize: '0.85em', opacity: 0.8 }}>
+          الأخطاء تُظهر الآن سلسلة الدوال (مثل Python/JS) — يسهّل التشخيص جداً.
+        </p>
       </section>
 
       <section>

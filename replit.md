@@ -66,6 +66,13 @@ Block delimiters: `:` opens a block, `انتهى` closes it (Pascal-inspired but
 - **Save/load models** to localStorage: `احفظ_نموذج(net, key)`, `حمّل_نموذج(key)`, `نماذج_محفوظة()`
 - Core AI: `شبكة_عصبية`, `درّب`, `تنبأ`, `خسارة`, `دقة`
 
+### Tier 5 — Pro-Language Features (added)
+- **Stack traces**: every `ArabicError` captures the call-stack snapshot (deepest first) at the throw site. The runner emits a multi-line "تتبّع الاستدعاءات" block showing each frame's function name + caller location. `callFunction` pushes/pops `{name, callerLoc}` frames; `execStmt` enriches errors with `loc` + `arabicStack` if missing.
+- **Module system**: `وحدة اسم : ... صدّر x، y انتهى` defines a module with an isolated `Environment`. `استورد x، y من اسم` copies whole `EnvEntry` objects (preserving type annotations + constness). `صدّر` is restricted to module-local bindings via `env.hasOwn(n)` (does not walk to globals/builtins). Functions retain `closure = modEnv` so they correctly resolve internal module names when called from importer scope.
+- **Optional type annotations**: `كنز س: رقم = 5` (also `سرّ`). Types: `رقم/نص/منطقي/قائمة/كائن/دالة/عدم/أي` + any struct name (with inheritance walk via `__struct__` chain). Checked on declaration AND assignment via `getTypeAnnotation`. Unknown type names are a HARD error (no silent escape). Annotations stored on `EnvEntry.typeName`, preserved across reassignment.
+- **Test framework**: `اختبر(name, fn)`, `توقّع(actual, expected, label?)`, `توقّع_صدق`, `توقّع_خطأ(fn, msgPart?)`, `شغّل_اختبارات()` runs all registered tests with formatted ✓/✗ output and pass/fail summary.
+- **REPL** (Read-Eval-Print Loop): `interpreter.runSnippet(src)` evaluates against persistent globals without resetting state; last `ExpressionStatement` echoes its value as `= <repr>` (info line). Playground exposes a "⌨ تفاعلي" toggle with input row, ↑/↓ history navigation, `>` prompt formatting.
+
 ### Tier 4 — Real Language Upgrades (added)
 - **Line-numbered errors**: every Statement carries `loc { line, col }` from the parser; runtime errors are prefixed with `[السطر N]`. Parser errors are reformatted to the same prefix. Errors raised inside DOM event handlers also carry location via `emitEventError`.
 - **Struct inheritance**: `بنية كلب وارث حيوان : ... انتهى`
@@ -92,7 +99,7 @@ Block delimiters: `:` opens a block, `انتهى` closes it (Pascal-inspired but
 - `src/components/ExamplesPanel.tsx` — 18 built-in examples (5 categories)
 - `src/pages/Playground.tsx` — Main IDE layout (editor + console + canvas + share)
 
-### Examples Included (18 total, 5 categories)
+### Examples Included (24 total, 5 categories)
 **أساسي (Basics)**: Hello World, Math, Control flow, Functions & recursion, Arrays & structs, Dates & stats
 **تطبيقات (Apps)**: Interactive counter, Todo list (full DOM apps)
 **خوارزميات (Algorithms)**: Pattern matching, Sorting / primes / GCD
