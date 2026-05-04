@@ -228,7 +228,10 @@ export class Interpreter {
       return 0;
     }});
     g.define('إضافة', { __b: true, fn: (arr: unknown[], item: unknown) => { (arr as unknown[]).push(item); return arr; } });
+    g.define('إضافة_أمام', { __b: true, fn: (arr: unknown[], item: unknown) => { (arr as unknown[]).unshift(item); return arr; } });
     g.define('حذف', { __b: true, fn: (arr: unknown[], idx?: number) => (arr as unknown[]).splice(idx ?? arr.length - 1, 1)[0] });
+    g.define('حذف_آخر', { __b: true, fn: (arr: unknown[]) => (arr as unknown[]).pop() ?? null });
+    g.define('حذف_أول', { __b: true, fn: (arr: unknown[]) => (arr as unknown[]).shift() ?? null });
     g.define('أول', { __b: true, fn: (arr: unknown[]) => arr[0] ?? null });
     g.define('آخر', { __b: true, fn: (arr: unknown[]) => arr[arr.length - 1] ?? null });
     g.define('فرز', { __b: true, fn: (arr: unknown[]) => [...arr].sort((a, b) => (a as number) - (b as number)) });
@@ -866,6 +869,287 @@ export class Interpreter {
     g.define('لوحة_من', { __b: true, fn: (parent: unknown) => {
       if (!isEl(parent as HTMLElement)) throw new ArabicError('ليس عنصراً');
       return parent;
+    }});
+
+    // ==================== JSON ====================
+    g.define('إلى_جيسون', { __b: true, fn: (val: unknown, indent: unknown = 0) => {
+      try { return JSON.stringify(val, null, Number(indent) || 0); }
+      catch (e) { throw new ArabicError('خطأ في تحويل إلى JSON: ' + String(e)); }
+    }});
+    g.define('من_جيسون', { __b: true, fn: (str: unknown) => {
+      try { return JSON.parse(String(str)); }
+      catch { throw new ArabicError('خطأ في تحليل JSON: النص ليس JSON صحيحاً'); }
+    }});
+
+    // ==================== HTTP Fetch (sync XHR) ====================
+    g.define('اجلب', { __b: true, fn: (url: unknown, opts?: unknown) => {
+      const xhr = new XMLHttpRequest();
+      const options = (opts && typeof opts === 'object') ? opts as Record<string, unknown> : {};
+      const method = String(options['طريقة'] ?? options['method'] ?? 'GET').toUpperCase();
+      xhr.open(method, String(url), false);
+      const headers = options['ترويسات'] ?? options['headers'];
+      if (headers && typeof headers === 'object') {
+        for (const [k, v] of Object.entries(headers as Record<string, string>)) {
+          xhr.setRequestHeader(k, String(v));
+        }
+      }
+      if (method !== 'GET' && !headers) {
+        xhr.setRequestHeader('Content-Type', 'application/json');
+      }
+      const body = options['جسم'] ?? options['body'];
+      xhr.send(body !== undefined ? String(body) : null);
+      let jsonResult: unknown = null;
+      try { jsonResult = JSON.parse(xhr.responseText); } catch { /* not json */ }
+      return {
+        'حالة':   xhr.status,
+        'نص':     xhr.responseText,
+        'جيسون':  jsonResult,
+        'ناجح':   xhr.status >= 200 && xhr.status < 300,
+      };
+    }});
+
+    // ==================== Canvas 2D Drawing ====================
+    const isCtx = (v: unknown): v is CanvasRenderingContext2D =>
+      v instanceof CanvasRenderingContext2D;
+    const isCanvas = (v: unknown): v is HTMLCanvasElement =>
+      v instanceof HTMLCanvasElement;
+
+    g.define('رسّام', { __b: true, fn: (w: unknown = 600, h: unknown = 400) => {
+      const c = document.createElement('canvas');
+      c.width  = Math.max(1, Number(w));
+      c.height = Math.max(1, Number(h));
+      c.style.cssText = 'display:block;max-width:100%;';
+      return c;
+    }});
+    g.define('سياق', { __b: true, fn: (canvas: unknown) => {
+      if (!isCanvas(canvas)) throw new ArabicError("'سياق' يحتاج لوح رسم (رسّام)");
+      return canvas.getContext('2d')!;
+    }});
+    g.define('عرض_لوح', { __b: true, fn: (c: unknown) => {
+      if (isCanvas(c)) return c.width;
+      if (isCtx(c)) return c.canvas.width;
+      throw new ArabicError("'عرض_لوح' يحتاج لوح رسم");
+    }});
+    g.define('ارتفاع_لوح', { __b: true, fn: (c: unknown) => {
+      if (isCanvas(c)) return c.height;
+      if (isCtx(c)) return c.canvas.height;
+      throw new ArabicError("'ارتفاع_لوح' يحتاج لوح رسم");
+    }});
+    g.define('لون_تعبئة', { __b: true, fn: (ctx: unknown, color: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'لون_تعبئة' يحتاج سياق رسم");
+      ctx.fillStyle = String(color);
+      return ctx;
+    }});
+    g.define('لون_حدود', { __b: true, fn: (ctx: unknown, color: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'لون_حدود' يحتاج سياق رسم");
+      ctx.strokeStyle = String(color);
+      return ctx;
+    }});
+    g.define('سماكة_خط', { __b: true, fn: (ctx: unknown, w: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'سماكة_خط' يحتاج سياق رسم");
+      ctx.lineWidth = Number(w);
+      return ctx;
+    }});
+    g.define('شفافية_قلم', { __b: true, fn: (ctx: unknown, alpha: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'شفافية_قلم' يحتاج سياق رسم");
+      ctx.globalAlpha = Math.min(1, Math.max(0, Number(alpha)));
+      return ctx;
+    }});
+    g.define('ارسم_مستطيل', { __b: true, fn: (ctx: unknown, x: unknown, y: unknown, w: unknown, h: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'ارسم_مستطيل' يحتاج سياق رسم");
+      ctx.fillRect(Number(x), Number(y), Number(w), Number(h));
+      return ctx;
+    }});
+    g.define('حدود_مستطيل', { __b: true, fn: (ctx: unknown, x: unknown, y: unknown, w: unknown, h: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'حدود_مستطيل' يحتاج سياق رسم");
+      ctx.strokeRect(Number(x), Number(y), Number(w), Number(h));
+      return ctx;
+    }});
+    g.define('ارسم_دائرة', { __b: true, fn: (ctx: unknown, x: unknown, y: unknown, r: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'ارسم_دائرة' يحتاج سياق رسم");
+      ctx.beginPath();
+      ctx.arc(Number(x), Number(y), Math.max(0, Number(r)), 0, Math.PI * 2);
+      ctx.fill();
+      return ctx;
+    }});
+    g.define('حدود_دائرة', { __b: true, fn: (ctx: unknown, x: unknown, y: unknown, r: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'حدود_دائرة' يحتاج سياق رسم");
+      ctx.beginPath();
+      ctx.arc(Number(x), Number(y), Math.max(0, Number(r)), 0, Math.PI * 2);
+      ctx.stroke();
+      return ctx;
+    }});
+    g.define('ارسم_خط', { __b: true, fn: (ctx: unknown, x1: unknown, y1: unknown, x2: unknown, y2: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'ارسم_خط' يحتاج سياق رسم");
+      ctx.beginPath();
+      ctx.moveTo(Number(x1), Number(y1));
+      ctx.lineTo(Number(x2), Number(y2));
+      ctx.stroke();
+      return ctx;
+    }});
+    g.define('ارسم_مضلع', { __b: true, fn: (ctx: unknown, points: unknown[], مملوء: unknown = true) => {
+      if (!isCtx(ctx)) throw new ArabicError("'ارسم_مضلع' يحتاج سياق رسم");
+      if (!points.length) return ctx;
+      ctx.beginPath();
+      const p0 = points[0] as Record<string,number>;
+      ctx.moveTo(Number(p0['س'] ?? p0[0]), Number(p0['ع'] ?? p0[1]));
+      for (let i = 1; i < points.length; i++) {
+        const p = points[i] as Record<string,number>;
+        ctx.lineTo(Number(p['س'] ?? p[0]), Number(p['ع'] ?? p[1]));
+      }
+      ctx.closePath();
+      if (مملوء) ctx.fill(); else ctx.stroke();
+      return ctx;
+    }});
+    g.define('ارسم_نص_لوح', { __b: true, fn: (ctx: unknown, text: unknown, x: unknown, y: unknown, size: unknown = 16) => {
+      if (!isCtx(ctx)) throw new ArabicError("'ارسم_نص_لوح' يحتاج سياق رسم");
+      ctx.font = `${Number(size)}px 'Noto Naskh Arabic', Arial, sans-serif`;
+      ctx.fillText(self.arabicStr(text), Number(x), Number(y));
+      return ctx;
+    }});
+    g.define('قياس_نص_لوح', { __b: true, fn: (ctx: unknown, text: unknown, size: unknown = 16) => {
+      if (!isCtx(ctx)) throw new ArabicError("'قياس_نص_لوح' يحتاج سياق رسم");
+      ctx.font = `${Number(size)}px 'Noto Naskh Arabic', Arial, sans-serif`;
+      return ctx.measureText(self.arabicStr(text)).width;
+    }});
+    g.define('امسح_لوح', { __b: true, fn: (ctx: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'امسح_لوح' يحتاج سياق رسم");
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      return ctx;
+    }});
+    g.define('امسح_منطقة', { __b: true, fn: (ctx: unknown, x: unknown, y: unknown, w: unknown, h: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'امسح_منطقة' يحتاج سياق رسم");
+      ctx.clearRect(Number(x), Number(y), Number(w), Number(h));
+      return ctx;
+    }});
+    g.define('احفظ_قلم', { __b: true, fn: (ctx: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'احفظ_قلم' يحتاج سياق رسم");
+      ctx.save(); return ctx;
+    }});
+    g.define('استعد_قلم', { __b: true, fn: (ctx: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'استعد_قلم' يحتاج سياق رسم");
+      ctx.restore(); return ctx;
+    }});
+    g.define('انقل_قلم', { __b: true, fn: (ctx: unknown, dx: unknown, dy: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'انقل_قلم' يحتاج سياق رسم");
+      ctx.translate(Number(dx), Number(dy)); return ctx;
+    }});
+    g.define('دوّر_قلم', { __b: true, fn: (ctx: unknown, angle: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'دوّر_قلم' يحتاج سياق رسم");
+      ctx.rotate(Number(angle)); return ctx;
+    }});
+    g.define('حجم_قلم', { __b: true, fn: (ctx: unknown, sx: unknown, sy?: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'حجم_قلم' يحتاج سياق رسم");
+      ctx.scale(Number(sx), Number(sy ?? sx)); return ctx;
+    }});
+    g.define('تدرج_لوني', { __b: true, fn: (ctx: unknown, x1: unknown, y1: unknown, x2: unknown, y2: unknown, ...stops: unknown[]) => {
+      if (!isCtx(ctx)) throw new ArabicError("'تدرج_لوني' يحتاج سياق رسم");
+      const g2 = ctx.createLinearGradient(Number(x1), Number(y1), Number(x2), Number(y2));
+      const n = stops.length;
+      for (let i = 0; i < n; i++) {
+        g2.addColorStop(i / Math.max(1, n - 1), String(stops[i]));
+      }
+      return g2;
+    }});
+    g.define('مسار_جديد', { __b: true, fn: (ctx: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'مسار_جديد' يحتاج سياق رسم");
+      ctx.beginPath(); return ctx;
+    }});
+    g.define('انقل_إلى', { __b: true, fn: (ctx: unknown, x: unknown, y: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'انقل_إلى' يحتاج سياق رسم");
+      ctx.moveTo(Number(x), Number(y)); return ctx;
+    }});
+    g.define('خط_إلى', { __b: true, fn: (ctx: unknown, x: unknown, y: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'خط_إلى' يحتاج سياق رسم");
+      ctx.lineTo(Number(x), Number(y)); return ctx;
+    }});
+    g.define('أغلق_مسار', { __b: true, fn: (ctx: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'أغلق_مسار' يحتاج سياق رسم");
+      ctx.closePath(); return ctx;
+    }});
+    g.define('املأ_مسار', { __b: true, fn: (ctx: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'املأ_مسار' يحتاج سياق رسم");
+      ctx.fill(); return ctx;
+    }});
+    g.define('ارسم_مسار', { __b: true, fn: (ctx: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'ارسم_مسار' يحتاج سياق رسم");
+      ctx.stroke(); return ctx;
+    }});
+    g.define('قوس', { __b: true, fn: (ctx: unknown, x: unknown, y: unknown, r: unknown, startAngle: unknown, endAngle: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'قوس' يحتاج سياق رسم");
+      ctx.arc(Number(x), Number(y), Number(r), Number(startAngle), Number(endAngle));
+      return ctx;
+    }});
+    g.define('صورة_لوح', { __b: true, fn: (ctx: unknown, img: unknown, x: unknown, y: unknown, w?: unknown, h?: unknown) => {
+      if (!isCtx(ctx)) throw new ArabicError("'صورة_لوح' يحتاج سياق رسم");
+      if (w !== undefined && h !== undefined) {
+        ctx.drawImage(img as CanvasImageSource, Number(x), Number(y), Number(w), Number(h));
+      } else {
+        ctx.drawImage(img as CanvasImageSource, Number(x), Number(y));
+      }
+      return ctx;
+    }});
+
+    // ==================== Regular Expressions ====================
+    g.define('ابحث_نص', { __b: true, fn: (نمط: unknown, نص: unknown, اعلام: unknown = '') => {
+      try {
+        const m = String(نص).match(new RegExp(String(نمط), String(اعلام)));
+        return m ? m[0] : null;
+      } catch (e) { throw new ArabicError('نمط بحث خاطئ: ' + String(e)); }
+    }});
+    g.define('ابحث_كل', { __b: true, fn: (نمط: unknown, نص: unknown, اعلام: unknown = 'g') => {
+      try {
+        const flags = String(اعلام).includes('g') ? String(اعلام) : String(اعلام) + 'g';
+        return [...String(نص).matchAll(new RegExp(String(نمط), flags))].map(m => m[0]);
+      } catch (e) { throw new ArabicError('نمط بحث خاطئ: ' + String(e)); }
+    }});
+    g.define('استبدل_نمط', { __b: true, fn: (نص: unknown, نمط: unknown, بديل: unknown, اعلام: unknown = 'g') => {
+      try {
+        return String(نص).replace(new RegExp(String(نمط), String(اعلام)), String(بديل));
+      } catch (e) { throw new ArabicError('نمط خاطئ: ' + String(e)); }
+    }});
+    g.define('يطابق', { __b: true, fn: (نمط: unknown, نص: unknown, اعلام: unknown = '') => {
+      try { return new RegExp(String(نمط), String(اعلام)).test(String(نص)); }
+      catch (e) { throw new ArabicError('نمط خاطئ: ' + String(e)); }
+    }});
+    g.define('مجموعات_بحث', { __b: true, fn: (نمط: unknown, نص: unknown, اعلام: unknown = '') => {
+      try {
+        const m = String(نص).match(new RegExp(String(نمط), String(اعلام)));
+        return m ? [...m].slice(1) : [];
+      } catch (e) { throw new ArabicError('نمط خاطئ: ' + String(e)); }
+    }});
+
+    // ==================== Clipboard ====================
+    g.define('انسخ_نص', { __b: true, fn: (text: unknown) => {
+      const t = String(text);
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(t).catch(() => {});
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+      }
+      return true;
+    }});
+
+    // ==================== Geolocation ====================
+    g.define('موقعي', { __b: true, fn: (onSuccess: unknown, onError?: unknown) => {
+      if (!navigator.geolocation) throw new ArabicError('المتصفح لا يدعم الموقع الجغرافي');
+      if (!(onSuccess instanceof ArabicFunction)) throw new ArabicError("'موقعي' يحتاج دالة للنجاح");
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          try { self.callFunction(onSuccess, [{ 'خط_عرض': pos.coords.latitude, 'خط_طول': pos.coords.longitude, 'دقة': pos.coords.accuracy }]); }
+          catch (e) { self.emitEventError(e, 'موقعي'); }
+        },
+        (err) => {
+          if (onError instanceof ArabicFunction) {
+            try { self.callFunction(onError, [err.message]); }
+            catch (e) { self.emitEventError(e, 'موقعي_خطأ'); }
+          }
+        }
+      );
+      return null;
     }});
 
     // ==================== Test framework ====================
