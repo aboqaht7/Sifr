@@ -41,16 +41,23 @@ The project utilizes a pnpm monorepo structure with Node.js 24 and TypeScript 5.
 - Files: `package.json` (registers language `.sifr`/`.صفر`/`.arb` + grammar + snippets), `snippets/sifr.json` (auto-generated completions), `syntaxes/sifr.tmLanguage.json`, `language-configuration.json`, `docs/REFERENCE.md` (complete Arabic language reference categorized by domain), `README.md`.
 
 **IDE Features:**
-- **RTL Code Editor:** A custom `CodeEditor.tsx` component designed for right-to-left languages with syntax highlighting.
+- **RTL Code Editor:** A custom `CodeEditor.tsx` component with syntax highlighting, **autocomplete popup** (trigger at 2+ Arabic chars, Tab to accept, ↑↓ to navigate, Esc to dismiss), and **inline error line highlighting** (red background + ⚠ gutter icon on the erroneous line).
+- **Multi-File Tabs:** File tab bar above editor supports multiple `.صفر` files with add (+) / close (×) — persisted in localStorage.
 - **Output Console:** `OutputConsole.tsx` for displaying program output and errors.
 - **Interactive REPL:** A Read-Eval-Print Loop allowing persistent global state and echoing of expression values.
 - **DOM API (Extended Web Builder):** Full Arabic DOM API for building complete interactive websites:
   - Elements: `لوحة`, `عنصر`, `نص_عنصر`, `عنوان`, `فقرة`, `زر`, `حقل`, `حاوية`, `صف`, `صورة`, `رابط`, `بند`, `قائمة_ب`, `قائمة_ر`, `شبكة`, `مربع_نص`, `منتقي`, `فاصل`, `بطاقة`, `بادج`, `مؤشر_تقدم`, `تنبيه`
   - DOM Ops: `أضف`, `احذف_عنصر`, `فرّغ`, `احصل_على`, `احصل_على_كل`, `انزلق_لـ`
   - Styles: `أنماط` with 50+ Arabic CSS property names, `أنماط_صفحة` (raw CSS injection)
-  - Events: `استمع` (14 event types), `غيّر_نص`, `غيّر_قيمة`, `غيّر_خاصية`, `اقرأ_قيمة`, `اقرأ_محدد`
+  - Events: `استمع` (20 event types incl. drag/drop, keyboard with event data object), `غيّر_نص`, `غيّر_قيمة`, `غيّر_خاصية`, `اقرأ_قيمة`, `اقرأ_محدد`
+  - Drag & Drop: `سحب`, `سحب_فوق`, `إفلات`, `سحب_خارج`, `سحب_دخول`, `سحب_نهاية` — each handler receives event data object
+  - Event data: keyboard events pass `{مفتاح, رمز, ctrl, shift, alt}`, mouse events pass `{س, ع, زر}`, drag events pass `{بيانات}`
   - Classes: `عيّن_صنف`, `أضف_صنف`, `احذف_صنف`, `تبديل_صنف`
   - Timers: `بعد` (setTimeout), `كل_مدة` (setInterval), `ألغ_مؤقت`
+- **WebSocket API:** `اتصال_مباشر(url)` returns proxy object with `عند_الفتح`, `عند_الرسالة`, `عند_الإغلاق`, `عند_الخطأ`, `حالة` props. Use `أرسل_للاتصال(ws, msg)` and `أغلق_اتصال(ws)`.
+- **File Reader API:** `اقرأ_ملف(onSuccess, onError?, accept?)` — opens native file picker, reads as UTF-8 text, calls `onSuccess({محتوى, اسم, حجم, نوع})`.
+- **Notifications API:** `طلب_إشعار(onGranted?, onDenied?)` requests permission; `أشعر(title, {نص?, أيقونة?})` shows browser notification.
+- **Canvas 2D:** Full 30+ function drawing API (رسّام, سياق, ارسم_مستطيل, ارسم_دائرة, ارسم_خط, ارسم_نص_لوح, etc.)
 - **Browser Preview:** macOS-style browser chrome with responsive preview (📱 375px / 💻 768px / 🖥 full) and **HTML export** (⬇ HTML button downloads standalone HTML file)
 - **Testing Framework:** An integrated `اختبر` framework for writing and running tests with `توقّع` assertions.
 - **Share Functionality:** Allows sharing code via URL by base64-encoding the current editor content.
@@ -60,6 +67,13 @@ The project utilizes a pnpm monorepo structure with Node.js 24 and TypeScript 5.
 - `todo-app` — Interactive todo app with add/delete/complete, live counter
 - `dashboard` — Dark analytics dashboard with bar chart + stats cards + live clock + data table
 - `spa-router` — Single-page app with 3 pages (Home / About / Contact) and animated routing
+- `drag-drop` — Drag & Drop UI with source list and drop zone
+- `file-reader` — File picker with CSV table rendering and plain text display
+- `notifications` — Browser notification API with permission request and timed alerts
+- `sifr-website` — صِفر's own landing page built entirely with صِفر DOM code (meta-showcase)
+
+**Network Examples (شبكة category):**
+- `websocket` — Real-time WebSocket echo chat using `اتصال_مباشر` with open/message/close callbacks
 
 **AI Capabilities:**
 - **Neural Networks:** `شبكة_عصبية` (ShebkaAsabiyya) class for neural network creation, supporting multiple activation functions (`ريلو`, `سيغمويد`, `ظل_زائدي`, `سوفت_ماكس`, `خطّي`) and smart weight initialization.

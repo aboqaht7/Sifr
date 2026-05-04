@@ -95,6 +95,7 @@ export class Interpreter {
   private callStack: { name: string; callerLoc: { line: number; col: number } | null }[] = [];
   private testRegistry: { name: string; fn: ArabicFunction }[] = [];
   public canvasEl: HTMLElement | null = null;
+  public errorLine: number | null = null;
 
   constructor() {
     this.globals = new Environment();
@@ -642,15 +643,32 @@ export class Interpreter {
     }});
     g.define('استمع', { __b: true, fn: (el: HTMLElement, event: string, handler: ArabicFunction) => {
       if (!isEl(el)) throw new ArabicError('ليس عنصراً');
+      if (!(handler instanceof ArabicFunction)) throw new ArabicError("'استمع' يحتاج دالة كمعالج");
       const map: Record<string, string> = {
         'نقر': 'click', 'مرور': 'mouseover', 'إدخال': 'input', 'تغيير': 'change',
         'مفتاح': 'keydown', 'تركيز': 'focus', 'خروج': 'mouseleave',
         'ضغط': 'mousedown', 'رفع': 'mouseup', 'حرف': 'keyup',
         'إرسال': 'submit', 'تمرير': 'scroll', 'تحميل': 'load',
+        'ضغط_مفتاح': 'keydown', 'رفع_مفتاح': 'keyup',
+        // Drag & Drop
+        'سحب': 'dragstart', 'سحب_فوق': 'dragover', 'إفلات': 'drop',
+        'سحب_خارج': 'dragleave', 'سحب_دخول': 'dragenter', 'سحب_نهاية': 'dragend',
       };
       const ev = map[event] ?? event;
-      el.addEventListener(ev, () => {
-        try { self.callFunction(handler, []); }
+      el.addEventListener(ev, (domEvent: Event) => {
+        let eventData: Record<string, unknown> = {};
+        if (domEvent instanceof KeyboardEvent) {
+          eventData = { 'مفتاح': domEvent.key, 'رمز': domEvent.code, 'ctrl': domEvent.ctrlKey, 'shift': domEvent.shiftKey, 'alt': domEvent.altKey };
+        } else if (domEvent instanceof MouseEvent) {
+          eventData = { 'س': domEvent.clientX, 'ع': domEvent.clientY, 'زر': domEvent.button };
+        } else if (domEvent instanceof DragEvent) {
+          if (ev === 'dragover' || ev === 'dragenter') domEvent.preventDefault();
+          eventData = { 'بيانات': domEvent.dataTransfer?.getData('text') ?? '' };
+        } else {
+          const tgt = domEvent.target as HTMLInputElement | null;
+          if (tgt) eventData = { 'قيمة': tgt.value ?? '' };
+        }
+        try { self.callFunction(handler, [eventData]); }
         catch (e) { self.emitEventError(e, event); }
       });
       return el;
@@ -1149,6 +1167,119 @@ export class Interpreter {
           }
         }
       );
+      return null;
+    }});
+
+    // ==================== WebSocket ====================
+    g.define('اتصال_مباشر', { __b: true, fn: (url: unknown) => {
+      const ws = new WebSocket(String(url));
+      const proxy: Record<string, unknown> = {
+        '__ws__': ws,
+        'حالة': 0,
+        'عند_الرسالة': null,
+        'عند_الفتح': null,
+        'عند_الإغلاق': null,
+        'عند_الخطأ': null,
+      };
+      ws.onopen = () => {
+        proxy['حالة'] = 1;
+        const fn = proxy['عند_الفتح'];
+        if (fn instanceof ArabicFunction) {
+          try { self.callFunction(fn, []); }
+          catch (e) { self.emitEventError(e, 'ws.عند_الفتح'); }
+        }
+      };
+      ws.onmessage = (ev) => {
+        const fn = proxy['عند_الرسالة'];
+        if (fn instanceof ArabicFunction) {
+          try { self.callFunction(fn, [ev.data]); }
+          catch (e) { self.emitEventError(e, 'ws.عند_الرسالة'); }
+        }
+      };
+      ws.onclose = () => {
+        proxy['حالة'] = 3;
+        const fn = proxy['عند_الإغلاق'];
+        if (fn instanceof ArabicFunction) {
+          try { self.callFunction(fn, []); }
+          catch (e) { self.emitEventError(e, 'ws.عند_الإغلاق'); }
+        }
+      };
+      ws.onerror = () => {
+        const fn = proxy['عند_الخطأ'];
+        if (fn instanceof ArabicFunction) {
+          try { self.callFunction(fn, ['خطأ في الاتصال']); }
+          catch (e) { self.emitEventError(e, 'ws.عند_الخطأ'); }
+        }
+      };
+      return proxy;
+    }});
+    g.define('أرسل_للاتصال', { __b: true, fn: (proxy: unknown, msg: unknown) => {
+      const ws = (proxy as Record<string, unknown>)['__ws__'] as WebSocket;
+      if (!(ws instanceof WebSocket)) throw new ArabicError("يحتاج اتصالاً مباشراً كأول معامل");
+      if (ws.readyState !== 1) throw new ArabicError('الاتصال غير مفتوح حالياً');
+      ws.send(String(msg));
+      return null;
+    }});
+    g.define('أغلق_اتصال', { __b: true, fn: (proxy: unknown) => {
+      const ws = (proxy as Record<string, unknown>)['__ws__'] as WebSocket;
+      if (ws instanceof WebSocket) ws.close();
+      return null;
+    }});
+
+    // ==================== File Reader ====================
+    g.define('اقرأ_ملف', { __b: true, fn: (onSuccess: unknown, onError?: unknown, accept?: unknown) => {
+      if (!(onSuccess instanceof ArabicFunction)) throw new ArabicError("'اقرأ_ملف' يحتاج دالة");
+      const input = document.createElement('input');
+      input.type = 'file';
+      if (accept) input.accept = String(accept);
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const content = ev.target?.result as string;
+          const info: Record<string, unknown> = {
+            'محتوى': content,
+            'اسم': file.name,
+            'حجم': file.size,
+            'نوع': file.type,
+          };
+          try { self.callFunction(onSuccess as ArabicFunction, [info]); }
+          catch (e) { self.emitEventError(e, 'اقرأ_ملف'); }
+        };
+        reader.onerror = () => {
+          if (onError instanceof ArabicFunction) {
+            try { self.callFunction(onError as ArabicFunction, ['خطأ في قراءة الملف']); }
+            catch (e) { self.emitEventError(e, 'اقرأ_ملف_خطأ'); }
+          }
+        };
+        reader.readAsText(file, 'UTF-8');
+      };
+      input.click();
+      return null;
+    }});
+
+    // ==================== Notifications ====================
+    g.define('طلب_إشعار', { __b: true, fn: (onGranted?: unknown, onDenied?: unknown) => {
+      if (!('Notification' in window)) throw new ArabicError('المتصفح لا يدعم الإشعارات');
+      Notification.requestPermission().then((perm) => {
+        if (perm === 'granted' && onGranted instanceof ArabicFunction) {
+          try { self.callFunction(onGranted as ArabicFunction, []); }
+          catch (e) { self.emitEventError(e, 'طلب_إشعار'); }
+        } else if (perm !== 'granted' && onDenied instanceof ArabicFunction) {
+          try { self.callFunction(onDenied as ArabicFunction, ['رُفض']); }
+          catch (e) { self.emitEventError(e, 'طلب_إشعار_رفض'); }
+        }
+      });
+      return null;
+    }});
+    g.define('أشعر', { __b: true, fn: (title: unknown, opts?: unknown) => {
+      if (!('Notification' in window)) throw new ArabicError('المتصفح لا يدعم الإشعارات');
+      if (Notification.permission !== 'granted') throw new ArabicError('لم تُمنح صلاحية الإشعارات — استخدم طلب_إشعار() أولاً');
+      const options = (opts && typeof opts === 'object') ? (opts as Record<string, unknown>) : {};
+      const body = options['نص'] ? String(options['نص']) : undefined;
+      const icon = options['أيقونة'] ? String(options['أيقونة']) : undefined;
+      new Notification(String(title), { body, icon, dir: 'rtl' });
       return null;
     }});
 
@@ -2155,6 +2286,7 @@ export class Interpreter {
     this.opCount = 0;
     this.callDepth = 0;
     this.currentLoc = null;
+    this.errorLine = null;
     this.structs.clear();
     this.modules.clear();
     this.callStack = [];
@@ -2164,6 +2296,12 @@ export class Interpreter {
       const ast = parse(tokens);
       this.execBlock(ast.body, this.globals);
     } catch (e: unknown) {
+      if (e instanceof ArabicError && e.loc) {
+        this.errorLine = e.loc.line;
+      } else if (e instanceof Error) {
+        const m = e.message.match(/[Ss]طر[:\s]+(\d+)|line[:\s]+(\d+)/i);
+        if (m) this.errorLine = parseInt(m[1] ?? m[2]);
+      }
       this.emitError(e);
     }
     return this.lines;

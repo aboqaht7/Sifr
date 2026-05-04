@@ -65,8 +65,62 @@ function encodeHashCode(code: string): string {
   return encodeURIComponent(btoa(bin));
 }
 
+type SifrFile = { id: string; name: string; code: string };
+
+function loadFiles(): SifrFile[] {
+  const fromHash = decodeHashCode();
+  if (fromHash) return [{ id: '1', name: 'رئيسي.صفر', code: fromHash }];
+  try {
+    const stored = localStorage.getItem('sifr-files');
+    if (stored) {
+      const parsed = JSON.parse(stored) as SifrFile[];
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore */ }
+  return [{ id: '1', name: 'رئيسي.صفر', code: DEFAULT_CODE }];
+}
+
+function saveFiles(files: SifrFile[]) {
+  try { localStorage.setItem('sifr-files', JSON.stringify(files)); } catch { /* ignore */ }
+}
+
 export default function Playground() {
-  const [code, setCode] = useState(() => decodeHashCode() ?? DEFAULT_CODE);
+  const [files, setFiles] = useState<SifrFile[]>(loadFiles);
+  const [activeId, setActiveId] = useState<string>(() => loadFiles()[0]?.id ?? '1');
+  const [errorLine, setErrorLine] = useState<number | null>(null);
+  const activeFile = files.find(f => f.id === activeId) ?? files[0];
+  const code = activeFile?.code ?? '';
+
+  const setCode = useCallback((val: string) => {
+    setFiles(fs => {
+      const updated = fs.map(f => f.id === activeId ? { ...f, code: val } : f);
+      saveFiles(updated);
+      return updated;
+    });
+  }, [activeId]);
+
+  const addFile = useCallback(() => {
+    const id = String(Date.now());
+    const name = `ملف_${files.length + 1}.صفر`;
+    const newFile: SifrFile = { id, name, code: `// ${name}\n` };
+    setFiles(fs => { const u = [...fs, newFile]; saveFiles(u); return u; });
+    setActiveId(id);
+  }, [files.length]);
+
+  const closeFile = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFiles(fs => {
+      if (fs.length <= 1) return fs;
+      const idx = fs.findIndex(f => f.id === id);
+      const updated = fs.filter(f => f.id !== id);
+      saveFiles(updated);
+      if (activeId === id) {
+        setActiveId(updated[Math.max(0, idx - 1)]?.id ?? updated[0]?.id);
+      }
+      return updated;
+    });
+  }, [activeId]);
+
   const [output, setOutput] = useState<OutputLine[]>([]);
   const [runTime, setRunTime] = useState<number | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -90,6 +144,7 @@ export default function Playground() {
   const run = useCallback(() => {
     setIsRunning(true);
     setOutput([]);
+    setErrorLine(null);
     if (canvasRef.current) canvasRef.current.innerHTML = '';
     const start = performance.now();
     setTimeout(() => {
@@ -99,6 +154,7 @@ export default function Playground() {
       setOutput(lines);
       setRunTime(elapsed);
       setIsRunning(false);
+      if (interpreter.errorLine) setErrorLine(interpreter.errorLine);
       // Auto-show canvas if any DOM was rendered
       if (canvasRef.current && canvasRef.current.children.length > 0 && !showCanvas) {
         setShowCanvas(true);
@@ -133,8 +189,9 @@ ${canvasRef.current.innerHTML}
     setCode('');
     setOutput([]);
     setRunTime(null);
+    setErrorLine(null);
     if (canvasRef.current) canvasRef.current.innerHTML = '';
-  }, []);
+  }, [setCode]);
 
   const submitRepl = useCallback(() => {
     const src = replInput.trim();
@@ -268,9 +325,28 @@ ${canvasRef.current.innerHTML}
         <div className="editor-pane">
           <div className="pane-header">
             <span className="pane-title">📝 المحرر</span>
-            <span className="pane-hint">Ctrl+Enter للتشغيل • Tab للمسافة</span>
+            <span className="pane-hint">Ctrl+Enter للتشغيل • Tab للإكمال • ↑↓ للتنقل</span>
           </div>
-          <CodeEditor value={code} onChange={setCode} onRun={run} />
+          <div className="file-tabs">
+            {files.map(f => (
+              <button
+                key={f.id}
+                className={`file-tab${f.id === activeId ? ' active' : ''}`}
+                onClick={() => { setActiveId(f.id); setErrorLine(null); }}
+              >
+                {f.name}
+                {files.length > 1 && (
+                  <span
+                    className="file-tab-close"
+                    onClick={(e) => closeFile(f.id, e)}
+                    title="إغلاق"
+                  >×</span>
+                )}
+              </button>
+            ))}
+            <button className="file-tab-add" onClick={addFile} title="ملف جديد">+</button>
+          </div>
+          <CodeEditor value={code} onChange={setCode} onRun={run} errorLine={errorLine} />
         </div>
 
         <div className="console-pane">
@@ -496,6 +572,36 @@ function DocsPanel() {
         <h4>📋 الحافظة والموقع 🆕</h4>
         <code>انسخ_نص("النص المراد نسخه")</code>
         <code>{`موقعي(مهمّة(بيانات) :\n    أرني(بيانات.خط_عرض)\nانتهى)`}</code>
+      </section>
+
+      <section>
+        <h4>🔌 WebSocket — اتصال مباشر 🆕</h4>
+        <code>{`كنز ws = اتصال_مباشر("wss://echo.websocket.events")\nws.عند_الفتح = مهمّة() : أرني("متصل") انتهى\nws.عند_الرسالة = مهمّة(رسالة) : أرني(رسالة) انتهى\nws.عند_الإغلاق = مهمّة() : أرني("انتهى") انتهى\nأرسل_للاتصال(ws، "مرحبا")\nأغلق_اتصال(ws)`}</code>
+        <p style={{ fontSize: '0.8em', opacity: 0.7 }}>خصائص: عند_الفتح، عند_الرسالة، عند_الإغلاق، عند_الخطأ، حالة<br/>دوال: أرسل_للاتصال، أغلق_اتصال</p>
+      </section>
+
+      <section>
+        <h4>📂 قراءة الملفات 🆕</h4>
+        <code>{`اقرأ_ملف(مهمّة(بيانات) :\n    أرني(بيانات.اسم)\n    أرني(بيانات.حجم)\n    أرني(بيانات.محتوى)\nانتهى، مهمّة(خطأ) :\n    أرني("فشل: " + خطأ)\nانتهى، ".csv,.txt")`}</code>
+        <p style={{ fontSize: '0.8em', opacity: 0.7 }}>يفتح منتقي الملفات. بيانات الملف: محتوى، اسم، حجم، نوع. المعامل الثالث = أنواع مقبولة</p>
+      </section>
+
+      <section>
+        <h4>🔔 الإشعارات 🆕</h4>
+        <code>{`طلب_إشعار(\n    مهمّة() : أرني("الإذن مُمنح") انتهى،\n    مهمّة() : أرني("رُفض") انتهى\n)\nأشعر("عنوان الإشعار"، { نص: "محتوى الإشعار" })`}</code>
+        <p style={{ fontSize: '0.8em', opacity: 0.7 }}>يجب استدعاء طلب_إشعار أولاً. خيارات أشعر: نص، أيقونة</p>
+      </section>
+
+      <section>
+        <h4>🖱️ السحب والإفلات 🆕</h4>
+        <code>{`عنصر.draggable = صدق\nاستمع(عنصر، "سحب"، مهمّة(حد) :\n    حد.dataTransfer.setData("text"، "البيانات")\nانتهى)\nاستمع(منطقة، "إفلات"، مهمّة(حد) :\n    كنز ب = حد.dataTransfer.getData("text")\nانتهى)`}</code>
+        <p style={{ fontSize: '0.8em', opacity: 0.7 }}>أحداث: سحب، سحب_فوق، إفلات، سحب_خارج، سحب_دخول، سحب_نهاية</p>
+      </section>
+
+      <section>
+        <h4>⌨️ بيانات أحداث استمع 🆕</h4>
+        <code>{`// أحداث لوحة المفاتيح\nاستمع(عنصر، "مفتاح"، مهمّة(حد) :\n    أرني(حد.مفتاح)  // المفتاح المضغوط\nانتهى)\n// أحداث الماوس\nاستمع(عنصر، "نقر"، مهمّة(حد) :\n    أرني(حد.س)  // إحداثية X\n    أرني(حد.ع)  // إحداثية Y\nانتهى)`}</code>
+        <p style={{ fontSize: '0.8em', opacity: 0.7 }}>كل حدث يُمرّر كائن بيانات للمعالج. لوحة مفاتيح: مفتاح، رمز، ctrl، shift. ماوس: س، ع، زر</p>
       </section>
 
       <section>
