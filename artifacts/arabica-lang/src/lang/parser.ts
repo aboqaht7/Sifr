@@ -58,7 +58,7 @@ export interface CallExpr { type: 'CallExpr'; callee: Expression; args: Expressi
 export interface MemberExpr { type: 'MemberExpr'; object: Expression; property: string }
 export interface IndexExpr { type: 'IndexExpr'; object: Expression; index: Expression }
 
-const VAR_KW = new Set(['كنز', 'قيمة', 'قيمه']);
+const VAR_KW = new Set(['قيمة', 'قيمه']);
 const CONST_KW = new Set(['سرّ', 'سر', 'ثابت']);
 const FUNC_KW = new Set(['مهمّة', 'مهمة', 'دالة', 'وظيفة', 'وظيفه']);
 const STRUCT_KW = new Set(['بنية', 'نموذج']);

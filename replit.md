@@ -18,7 +18,7 @@ Interpreter changes are allowed when user explicitly requests expanded language/
 The project utilizes a pnpm monorepo structure with Node.js 24 and TypeScript 5.9. The frontend, which houses the Arabica IDE, is built with React and Vite.
 
 **Arabica Language Design:**
-- **Unique Syntax:** The language features a distinctive Arabic syntax for control flow (`:` for block open, `انتهى` for close), variable declaration (`كنز`), constants (`سرّ`), functions (`مهمّة`), and other constructs, deliberately avoiding direct translation of existing languages.
+- **Unique Syntax:** The language features a distinctive Arabic syntax for control flow (`:` for block open, `انتهى` for close), variable declaration (`قيمة` / `قيمه`), constants (`سرّ`), functions (`مهمّة`), and other constructs, deliberately avoiding direct translation of existing languages.
 - **Data Structures:** Includes native support for arrays, objects, structs (`بنية`), and advanced collections like `قاموس` (HashMap), `مجموعة` (Set), `طابور` (Queue), `مكدس` (Stack), `كومة` (Min-Heap), `قائمة_مرتبطة` (Doubly-LinkedList), and `شجرة_بحث` (BinarySearchTree).
 - **Control Flow:** Implements `إن/وإلا إن/وإلا` (if/else), `كرر` (while), `جوال ع من .. إلى` (for range), `جوال ك في ..` (foreach), `طابق` (match), `حاول/التقط` (try/catch).
 - **Functional Programming:** Supports recursion, closures, higher-order functions, and anonymous functions (lambdas).
