@@ -669,6 +669,40 @@ function DocsPanel() {
       </section>
 
       <section>
+        <h4>🔷 صِفر-نوع — نظام الأنواع</h4>
+        <p style={{ fontSize: '0.85em', opacity: 0.85, lineHeight: 1.7 }}>
+          <strong>معرفة النوع:</strong> <code>نوع_من(قيمة)</code> → <code>'رقم' | 'نص' | 'منطقي' | 'قائمة' | 'كائن' | 'مهمّة' | 'فارغ'</code><br/>
+          <strong>فحص النوع:</strong> <code>تحقق_نوع(قيمة، 'رقم')</code> → صدق/كذب<br/>
+          <strong>تعريف الواجهة:</strong> <code>{'واجهة({اسم: "نص"، عمر: "رقم"})'}</code><br/>
+          <strong>التحقق:</strong> <code>{'صحّح(كائن، واجهة_ما)'}</code> — يرمي خطأ تفصيلياً إن فشل<br/>
+          <strong>منشئ نوع:</strong> <code>{'أنشئ_نوع("منتج"، واجهة_ما)'}</code> → دالة بانية مع تحقق تلقائي
+        </p>
+      </section>
+
+      <section>
+        <h4>🎨 صِفر-تنسيق — نظام الأنماط</h4>
+        <p style={{ fontSize: '0.85em', opacity: 0.85, lineHeight: 1.7 }}>
+          <strong>ورقة أنماط:</strong> <code>{'ورقة_أنماط({زر: {لون: "#fff"، خلفية: "#333"}})'}</code> → كائن أصناف<br/>
+          <strong>تطبيق الصنف:</strong> <code>{'عيّن_صنف(عنصر، أنماطي["زر"])'}</code><br/>
+          <strong>دمج أصناف:</strong> <code>{'دمج_أصناف(أنماطي["زر"]، أنماطي["كبير"])'}</code><br/>
+          <strong>متغير تنسيق:</strong> <code>{'متغير_تنسيق("لون-رئيسي"، "#6366f1")'}</code> — كـ CSS Custom Property<br/>
+          <strong>قراءة متغير:</strong> <code>{'قيمة_تنسيق("لون-رئيسي")'}</code>
+        </p>
+      </section>
+
+      <section>
+        <h4>⚛️ صِفر-واجهة — نظام المكونات</h4>
+        <p style={{ fontSize: '0.85em', opacity: 0.85, lineHeight: 1.7 }}>
+          <strong>تعريف مكوّن:</strong> <code>{'كنز بطاقتي = مكوّن(مهمّة(خ){ … أعد عنصر })'}</code><br/>
+          <strong>الحالة:</strong> <code>{'كنز [عدد، عيّن_عدد] = حالة(0)'}</code> — أعد العرض تلقائياً عند التغيير<br/>
+          <strong>قراءة الحالة:</strong> <code>{'عدد()'}</code> — استدعاء الدالة يُعيد القيمة الحالية<br/>
+          <strong>تحديث الحالة:</strong> <code>{'عيّن_عدد(عدد() + 1)'}</code> — يُعيد رسم المكوّن<br/>
+          <strong>العرض:</strong> <code>{'اعرض(بطاقتي، {نص: "مرحبا"}، حاوية)'}</code><br/>
+          <strong>الخصائص:</strong> <code>{'خاصية(خ، "نص"، "افتراضي")'}</code> — قراءة خاصية مع قيمة افتراضية
+        </p>
+      </section>
+
+      <section>
         <h4>☕ هياكل بيانات بمستوى Java (Tier 7) 🆕</h4>
         <p style={{ fontSize: '0.85em', opacity: 0.85, lineHeight: 1.7 }}>
           <strong>قاموس (HashMap):</strong> <code>قاموس()</code>، <code>قاموس_ضع/جلب/له/احذف/حجم/مفاتيح/قيم/أزواج</code><br/>

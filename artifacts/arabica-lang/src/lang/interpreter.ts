@@ -1294,6 +1294,188 @@ export class Interpreter {
       return null;
     }});
 
+    // ==================== صِفر-نوع: نظام الأنواع (كـ TypeScript) ====================
+    g.define('نوع_من', { __b: true, fn: (value: unknown) => {
+      if (value === null || value === undefined) return 'فارغ';
+      if (Array.isArray(value)) return 'قائمة';
+      if (value instanceof ArabicFunction) return 'مهمّة';
+      if (typeof value === 'object') return 'كائن';
+      if (typeof value === 'number') return 'رقم';
+      if (typeof value === 'string') return 'نص';
+      if (typeof value === 'boolean') return 'منطقي';
+      return 'مجهول';
+    }});
+    g.define('تحقق_نوع', { __b: true, fn: (value: unknown, typeName: unknown) => {
+      switch (String(typeName)) {
+        case 'رقم':    return typeof value === 'number' && !isNaN(value as number);
+        case 'نص':     return typeof value === 'string';
+        case 'منطقي':  return typeof value === 'boolean';
+        case 'قائمة':  return Array.isArray(value);
+        case 'مهمّة':  return value instanceof ArabicFunction;
+        case 'فارغ':   return value === null || value === undefined;
+        case 'كائن':   return value !== null && typeof value === 'object' && !Array.isArray(value);
+        default:       return false;
+      }
+    }});
+    g.define('واجهة', { __b: true, fn: (schema: unknown) => {
+      if (!schema || typeof schema !== 'object' || Array.isArray(schema))
+        throw new ArabicError("'واجهة' يحتاج كائن مخطط — مثال: واجهة({اسم: 'نص', عمر: 'رقم'})");
+      return { __sifr_iface__: true, schema };
+    }});
+    g.define('صحّح', { __b: true, fn: (value: unknown, iface: unknown) => {
+      const i = iface as Record<string, unknown>;
+      if (!i?.__sifr_iface__) throw new ArabicError("'صحّح' يحتاج واجهة — استخدم واجهة({…}) أولاً");
+      if (!value || typeof value !== 'object' || Array.isArray(value))
+        throw new ArabicError("'صحّح': القيمة يجب أن تكون كائناً");
+      const schema = i.schema as Record<string, string>;
+      const obj = value as Record<string, unknown>;
+      const errors: string[] = [];
+      for (const [field, expected] of Object.entries(schema)) {
+        const v = obj[field];
+        let ok = false;
+        switch (String(expected)) {
+          case 'رقم':   ok = typeof v === 'number'; break;
+          case 'نص':    ok = typeof v === 'string'; break;
+          case 'منطقي': ok = typeof v === 'boolean'; break;
+          case 'قائمة': ok = Array.isArray(v); break;
+          case 'مهمّة': ok = v instanceof ArabicFunction; break;
+          case 'كائن':  ok = v !== null && typeof v === 'object' && !Array.isArray(v); break;
+          case 'أي':    ok = true; break;
+          default:      ok = true;
+        }
+        if (!ok) errors.push(`• "${field}": يجب "${expected}"، وُجد "${self.arabicStr(v)}"`);
+      }
+      if (errors.length > 0) throw new ArabicError('أخطاء التحقق من النوع:\n' + errors.join('\n'));
+      return true;
+    }});
+    g.define('أنشئ_نوع', { __b: true, fn: (typeName: unknown, iface: unknown) => {
+      const name = String(typeName);
+      const i = iface as Record<string, unknown>;
+      const schema: Record<string, string> = i?.__sifr_iface__
+        ? (i.schema as Record<string, string>)
+        : (iface as Record<string, string>);
+      const ctor: { __b: true; fn: (...a: unknown[]) => unknown } = { __b: true, fn: (data: unknown) => {
+        const obj = (data && typeof data === 'object' && !Array.isArray(data))
+          ? (data as Record<string, unknown>) : {};
+        for (const field of Object.keys(schema)) {
+          if (obj[field] === undefined)
+            throw new ArabicError(`النوع "${name}": الحقل "${field}" مطلوب`);
+        }
+        return { __type__: name, ...obj };
+      }};
+      return ctor;
+    }});
+
+    // ==================== صِفر-تنسيق: نظام الأنماط (كـ CSS) ====================
+    const _cssProps: Record<string, string> = {
+      'لون': 'color', 'خلفية': 'background', 'خط': 'font-family', 'حجم_خط': 'font-size',
+      'سماكة': 'font-weight', 'محاذاة': 'text-align', 'حشو': 'padding', 'هامش': 'margin',
+      'حدود': 'border', 'دائرية': 'border-radius', 'عرض': 'width', 'ارتفاع': 'height',
+      'ظل': 'box-shadow', 'شفافية': 'opacity', 'عرض_أقصى': 'max-width',
+      'ارتفاع_أقصى': 'max-height', 'عرض_أدنى': 'min-width', 'ارتفاع_أدنى': 'min-height',
+      'انتقال': 'transition', 'تحريك': 'animation', 'تحويل': 'transform',
+      'مكان': 'position', 'يمين': 'right', 'يسار': 'left', 'أعلى': 'top', 'أسفل': 'bottom',
+      'ترتيب_z': 'z-index', 'تدفق': 'overflow', 'اتجاه': 'direction',
+      'فجوة': 'gap', 'لف': 'flex-wrap', 'مرن': 'flex', 'توسيط': 'justify-content',
+      'توسيط_محاذاة': 'align-items', 'نوع_عرض': 'display', 'زخرفة': 'text-decoration',
+      'تباعد': 'letter-spacing', 'ارتفاع_سطر': 'line-height', 'تعويم': 'float',
+      'ظل_نص': 'text-shadow', 'هامش_أعلى': 'margin-top', 'هامش_أسفل': 'margin-bottom',
+      'هامش_يمين': 'margin-right', 'هامش_يسار': 'margin-left',
+      'حشو_أعلى': 'padding-top', 'حشو_أسفل': 'padding-bottom',
+      'حشو_يمين': 'padding-right', 'حشو_يسار': 'padding-left',
+      'عمود_شبكة': 'grid-template-columns', 'صف_شبكة': 'grid-template-rows',
+      'حجم_صندوق': 'box-sizing', 'مؤشر_ماوس': 'cursor', 'تصفية_css': 'filter',
+      'مزج': 'mix-blend-mode', 'حدود_أعلى': 'border-top', 'حدود_أسفل': 'border-bottom',
+      'حدود_يمين': 'border-right', 'حدود_يسار': 'border-left',
+      'محاذاة_نص': 'vertical-align', 'تغليف_نص': 'white-space',
+    };
+    g.define('ورقة_أنماط', { __b: true, fn: (obj: unknown) => {
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj))
+        throw new ArabicError("'ورقة_أنماط' يحتاج كائن أنماط — مثال: ورقة_أنماط({زر: {لون: 'أبيض'}})");
+      const styles = obj as Record<string, Record<string, unknown>>;
+      const classMap: Record<string, string> = {};
+      let css = '';
+      for (const [name, rules] of Object.entries(styles)) {
+        const uid = 'ص' + Math.random().toString(36).slice(2, 8);
+        classMap[name] = uid;
+        const decls = Object.entries(rules ?? {})
+          .map(([k, v]) => {
+            const prop = _cssProps[k] ?? k.replace(/([A-Z])/g, m => '-' + m.toLowerCase());
+            return `  ${prop}: ${v}`;
+          }).join(';\n');
+        css += `.${uid} {\n${decls}\n}\n`;
+      }
+      const tag = document.createElement('style');
+      tag.setAttribute('data-sifr', '');
+      tag.textContent = css;
+      document.head.appendChild(tag);
+      return classMap;
+    }});
+    g.define('متغير_تنسيق', { __b: true, fn: (name: unknown, value: unknown) => {
+      document.documentElement.style.setProperty(`--ص-${String(name)}`, String(value));
+      return null;
+    }});
+    g.define('قيمة_تنسيق', { __b: true, fn: (name: unknown) => {
+      return getComputedStyle(document.documentElement).getPropertyValue(`--ص-${String(name)}`).trim() || null;
+    }});
+    g.define('دمج_أصناف', { __b: true, fn: (...args: unknown[]) =>
+      args.filter(a => typeof a === 'string' && a.trim()).join(' ')
+    });
+
+    // ==================== صِفر-واجهة: نظام المكونات (كـ JSX/React) ====================
+    const _stack: Array<{ slots: unknown[]; idx: number; rerender: () => void }> = [];
+    g.define('مكوّن', { __b: true, fn: (renderFn: unknown) => {
+      if (!(renderFn instanceof ArabicFunction))
+        throw new ArabicError("'مكوّن' يحتاج دالة عرض — مثال: مكوّن(مهمّة(خ){…})");
+      return { __sifr_comp__: true, fn: renderFn };
+    }});
+    g.define('اعرض', { __b: true, fn: (comp: unknown, props?: unknown, container?: unknown) => {
+      const c = comp as Record<string, unknown>;
+      if (!c?.__sifr_comp__)
+        throw new ArabicError("'اعرض' يحتاج مكوّناً — استخدم مكوّن(دالة) أولاً");
+      const fn = c.fn as ArabicFunction;
+      const targetEl: Element = (container instanceof Element)
+        ? container
+        : (self.canvasEl ?? document.body);
+      const slots: unknown[] = [];
+      const doRender = (): unknown => {
+        const ctx = { slots, idx: 0, rerender: doRender };
+        _stack.push(ctx);
+        let result: unknown;
+        try { result = self.callFunction(fn, [props ?? {}]); }
+        finally { _stack.pop(); }
+        if (result instanceof Element) {
+          targetEl.innerHTML = '';
+          targetEl.appendChild(result);
+        }
+        return result;
+      };
+      return doRender();
+    }});
+    g.define('حالة', { __b: true, fn: (initial: unknown) => {
+      const ctx = _stack[_stack.length - 1];
+      if (!ctx) {
+        let val = initial;
+        return [
+          { __b: true, fn: () => val },
+          { __b: true, fn: (v: unknown) => { val = v; } },
+        ];
+      }
+      const idx = ctx.idx++;
+      if (ctx.slots.length <= idx) ctx.slots.push(initial);
+      const slots = ctx.slots;
+      const rerender = ctx.rerender;
+      return [
+        { __b: true, fn: () => slots[idx] },
+        { __b: true, fn: (v: unknown) => { slots[idx] = v; rerender(); } },
+      ];
+    }});
+    g.define('خاصية', { __b: true, fn: (props: unknown, key: unknown, defaultVal?: unknown) => {
+      const p = props as Record<string, unknown>;
+      const k = String(key);
+      return (p && p[k] !== undefined) ? p[k] : (defaultVal ?? null);
+    }});
+
     // ==================== Test framework ====================
     g.define('اختبر', { __b: true, fn: (name: unknown, fn: unknown) => {
       if (typeof name !== 'string') throw new ArabicError(`'اختبر' يحتاج اسم نصّي`);
