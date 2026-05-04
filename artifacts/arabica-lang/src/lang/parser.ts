@@ -1,3 +1,9 @@
+/**
+ * صِفر — لغة البرمجة العربية الأصيلة
+ * Copyright (c) 2026 عبدالله سعد علي محمد القحطاني
+ *                    Abdullah Saad Ali Mohammed Alqahtani
+ * Licensed under the MIT License.
+ */
 import { Token, TokenType } from './lexer';
 
 export interface Loc { line: number; col: number }

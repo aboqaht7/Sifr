@@ -1,3 +1,9 @@
+/**
+ * صِفر — لغة البرمجة العربية الأصيلة
+ * Copyright (c) 2026 عبدالله سعد علي محمد القحطاني
+ *                    Abdullah Saad Ali Mohammed Alqahtani
+ * Licensed under the MIT License.
+ */
 import { useState, useCallback, useEffect, useRef } from 'react';
 import CodeEditor from '../components/CodeEditor';
 import OutputConsole from '../components/OutputConsole';
@@ -698,6 +704,16 @@ function DocsPanel() {
         <h4>📤 المشاركة</h4>
         <p style={{ fontSize: '0.8em', opacity: 0.7 }}>
           اضغط «شارك» لنسخ رابط يحتوي على كودك — افتحه في أي متصفح ليشتغل تلقائياً.
+        </p>
+      </section>
+
+      <section style={{ borderTop: '1px solid #2a2a3a', marginTop: '1.5rem', paddingTop: '1.2rem', textAlign: 'center' }}>
+        <p style={{ fontSize: '0.78em', opacity: 0.5, lineHeight: 1.8, margin: 0 }}>
+          صِفر — لغة البرمجة العربية الأصيلة<br/>
+          <span style={{ fontFamily: 'monospace', letterSpacing: '0.03em' }}>Sifr — The Arabic-First Programming Language</span><br/>
+          © 2026 <strong style={{ opacity: 0.7 }}>عبدالله سعد علي محمد القحطاني</strong><br/>
+          <span style={{ opacity: 0.4, fontSize: '0.9em' }}>Abdullah Saad Ali Mohammed Alqahtani</span><br/>
+          <span style={{ opacity: 0.35, fontSize: '0.85em' }}>جميع الحقوق محفوظة · MIT License</span>
         </p>
       </section>
     </div>

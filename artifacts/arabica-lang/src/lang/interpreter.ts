@@ -1,3 +1,14 @@
+/**
+ * صِفر — لغة البرمجة العربية الأصيلة
+ * Sifr — The Arabic-First Programming Language
+ *
+ * Copyright (c) 2026 عبدالله سعد علي محمد القحطاني
+ *                    Abdullah Saad Ali Mohammed Alqahtani
+ *
+ * Licensed under the MIT License. See LICENSE file for details.
+ * جميع الحقوق محفوظة لعبدالله سعد علي محمد القحطاني.
+ */
+
 import { tokenize } from './lexer';
 import { parse } from './parser';
 import { ShebkaAsabiyya, normalizeActivation, Activation } from './ai';
